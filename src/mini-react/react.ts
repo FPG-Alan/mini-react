@@ -1,4 +1,5 @@
-export const REACT_ELEMENT_TYPE = Symbol.for("react.element");
+import { REACT_ELEMENT_TYPE } from "./constants";
+
 function ReactElement(
   type: string,
   key: any,
@@ -33,14 +34,14 @@ const ReactCurrentOwner = {
   current: null,
 };
 type ReactElementConfig = {
-  ref: any;
-  key: any;
+  ref?: any;
+  key?: any;
   [key: string]: any;
 };
 function createElement(
   type: any,
   config: ReactElementConfig | null,
-  ...children: Record<string, unknown>[] | []
+  ...children: Record<string, unknown>[] | string[] | []
 ) {
   let propName;
 

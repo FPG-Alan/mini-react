@@ -95,3 +95,5 @@ export const UpdateState = 0;
 export const ReplaceState = 1;
 export const ForceUpdate = 2;
 export const CaptureUpdate = 3;
+
+export const REACT_ELEMENT_TYPE = Symbol.for("react.element");
