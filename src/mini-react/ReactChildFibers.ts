@@ -5,7 +5,11 @@ import {
   createWorkInProgress,
 } from "./ReactFiber";
 
-// diff 算法
+/**
+ * @param shouldTrackSideEffects update时需要追踪副作用， 初次mount时不需要
+ *
+ * diff 算法入口
+ */
 export function reconcileChildFibers(
   returnFiber: any,
   currentFirstChild: any,
@@ -156,9 +160,11 @@ function reconcileChildrenArray(
       nextOldFiber = oldFiber;
       oldFiber = null;
     } else {
+      //
       nextOldFiber = oldFiber.sibling;
     }
     const newFiber = updateSlot(returnFiber, oldFiber, newChildren[newIdx]);
+    // key 不相同， 直接退出第一个循环
     if (newFiber === null) {
       // TODO: This breaks on empty slots like null children. That's
       // unfortunate because it triggers the slow path all the time. We need
@@ -178,6 +184,7 @@ function reconcileChildrenArray(
         deleteChild(returnFiber, oldFiber);
       }
     }
+
     lastPlacedIndex = placeChild(
       newFiber,
       lastPlacedIndex,
@@ -192,23 +199,26 @@ function reconcileChildrenArray(
       // I.e. if we had null values before, then we want to defer this
       // for each null value. However, we also don't want to call updateSlot
       // with the previous one.
+      // 新的fiber也串起来
       previousNewFiber.sibling = newFiber;
     }
     previousNewFiber = newFiber;
     oldFiber = nextOldFiber;
   }
 
+  // 如果newChildren已经循环完了， 那么剩下的oldFiber都应该被标记删除
   if (newIdx === newChildren.length) {
     // We've reached the end of the new children. We can delete the rest.
     deleteRemainingChildren(returnFiber, oldFiber);
     return resultingFirstChild;
   }
 
+  // 如果oldChildren已经循环完了, 那么剩下的newChild都应该是插入
   if (oldFiber === null) {
     // If we don't have any more existing children we can choose a fast path
     // since the rest will all be insertions.
     for (; newIdx < newChildren.length; newIdx++) {
-      const newFiber = createChild(returnFiber, newChildren[newIdx], lanes);
+      const newFiber = createChild(returnFiber, newChildren[newIdx]);
       if (newFiber === null) {
         continue;
       }
@@ -238,8 +248,7 @@ function reconcileChildrenArray(
       existingChildren,
       returnFiber,
       newIdx,
-      newChildren[newIdx],
-      lanes
+      newChildren[newIdx]
     );
     if (newFiber !== null) {
       if (shouldTrackSideEffects) {
@@ -276,6 +285,31 @@ function reconcileChildrenArray(
 
   return resultingFirstChild;
 }
+
+function createChild(returnFiber: any, newChild: any) {
+  if (typeof newChild === "string" || typeof newChild === "number") {
+    // Text nodes don't have keys. If the previous node is implicitly keyed
+    // we can continue to replace it without aborting even if it is not a text
+    // node.
+    const created = createFiberFromText("" + newChild, returnFiber.mode);
+    created.return = returnFiber;
+    return created;
+  }
+
+  if (typeof newChild === "object" && newChild !== null) {
+    switch (newChild.$$typeof) {
+      case REACT_ELEMENT_TYPE: {
+        const created = createFiberFromElement(newChild, returnFiber.mode);
+        //   created.ref = coerceRef(returnFiber, null, newChild);
+        created.return = returnFiber;
+        return created;
+      }
+    }
+  }
+
+  return null;
+}
+
 function updateTextNode(returnFiber: any, current: any, textContent: any) {
   if (current === null || current.tag !== HostText) {
     // Insert
@@ -348,6 +382,15 @@ function updateSlot(returnFiber: any, oldFiber: any, newChild: any) {
   }
   return null;
 }
+
+/**
+ * 0. 首先设置这个child fiber.index = newIndex
+ * 1. 若不需要追踪副作用， 原样返回 lastPlacedIndex
+ * 2. 若没有alternate(说明不是复用的节点)， 标记 flags = Placement
+ * 3. 若有alternate(复用节点)
+ *  3.1 旧节点的 index < lastPlacedIndex, 标记 flags = Placement, 原样返回 lastPlacedIndex
+ *  3.2 旧节点的 index >= lastPlacedIndex 返回旧节点的 index (作为新的 lastPlacedIndex)
+ */
 function placeChild(
   newFiber: any,
   lastPlacedIndex: number,
@@ -375,6 +418,59 @@ function placeChild(
     newFiber.flags = Placement;
     return lastPlacedIndex;
   }
+}
+
+/**
+ * 旧 fiber 节点由链表结构转换成map结构，
+ * key 是 fiber.key 或 fiber.index
+ * value 是 fiber
+ */
+function mapRemainingChildren(returnFiber: any, currentFirstChild: any) {
+  // Add the remaining children to a temporary map so that we can find them by
+  // keys quickly. Implicit (null) keys get added to this set with their index
+  // instead.
+  const existingChildren = new Map();
+
+  let existingChild = currentFirstChild;
+  while (existingChild !== null) {
+    if (existingChild.key !== null) {
+      existingChildren.set(existingChild.key, existingChild);
+    } else {
+      existingChildren.set(existingChild.index, existingChild);
+    }
+    existingChild = existingChild.sibling;
+  }
+  return existingChildren;
+}
+
+/**
+ * 从 map 结构的旧children节点中找到新child对应的旧节点(可能为null)
+ * 调用 updateElement 获取一个新fiber节点
+ */
+function updateFromMap(
+  existingChildren: any,
+  returnFiber: any,
+  newIdx: any,
+  newChild: any
+) {
+  if (typeof newChild === "string" || typeof newChild === "number") {
+    // Text nodes don't have keys, so we neither have to check the old nor
+    // new node for the key. If both are text nodes, they match.
+    const matchedFiber = existingChildren.get(newIdx) || null;
+    return updateTextNode(returnFiber, matchedFiber, "" + newChild);
+  }
+
+  if (typeof newChild === "object" && newChild !== null) {
+    switch (newChild.$$typeof) {
+      case REACT_ELEMENT_TYPE: {
+        const matchedFiber =
+          existingChildren.get(newChild.key === null ? newIdx : newChild.key) ||
+          null;
+        return updateElement(returnFiber, matchedFiber, newChild);
+      }
+    }
+  }
+  return null;
 }
 
 function deleteRemainingChildren(returnFiber: any, currentFirstChild: any) {
