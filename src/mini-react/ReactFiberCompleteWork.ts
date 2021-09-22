@@ -9,7 +9,6 @@ import {
 } from "./constants";
 import { createInstance, createTextInstance, prepareUpdate } from "./react-dom";
 
-// 此函数的返回值是在completeWork阶段产生的新工作， 会交予beiginWork继续执行
 export function completeWork(current: any, workInProgress: any) {
   const newProps = workInProgress.pendingProps;
 
@@ -45,6 +44,7 @@ export function completeWork(current: any, workInProgress: any) {
       //   popHostContext(workInProgress);
       //   const rootContainerInstance = getRootHostContainer();
       const type = workInProgress.type;
+
       if (current !== null && workInProgress.stateNode != null) {
         updateHostComponent(
           current,
@@ -77,6 +77,9 @@ export function completeWork(current: any, workInProgress: any) {
         const instance = createInstance(type, newProps, workInProgress);
 
         // 递归 workInProgress ， 所有 HostComponent 或 HostText 在此时dom append to parent
+        // 这里不太懂， 为何在这个时候append？
+        // 这似乎是commit阶段的工作？
+
         appendAllChildren(instance, workInProgress);
 
         workInProgress.stateNode = instance;
@@ -109,7 +112,6 @@ export function completeWork(current: any, workInProgress: any) {
       const newText = newProps;
 
       if (current && workInProgress.stateNode != null) {
-        // 这是一个更新阶段， 而非初次渲染
         const oldText = current.memoizedProps;
         // If we have an alternate, that means this is an update and we need
         // to schedule a side-effect to do the updates.
@@ -174,6 +176,10 @@ function appendAllChildren(parent: Element, workInProgress: any) {
   let node = workInProgress.child;
   while (node !== null) {
     if (node.tag === HostComponent || node.tag === HostText) {
+      // complete 阶段是冒泡的
+      // 所以执行到这， 可以直接appendChild stateNode 到 parent
+      // 因为若wip child存在hostComp嵌套, node.stateNode在此之前肯定已经appendChild了
+      // 所以这里可以认为是一个性能优化的地方, 最后我们在commit阶段可以只appendChild HostRoot 的dom
       parent.appendChild(node.stateNode);
     } else if (node.child !== null) {
       node.child.return = node;

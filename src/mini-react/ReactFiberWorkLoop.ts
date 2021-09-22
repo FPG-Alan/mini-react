@@ -1,6 +1,7 @@
 import { Incomplete, NoFlags, PerformedWork } from "./constants";
 import { createWorkInProgress } from "./ReactFiber";
 import { beginWork } from "./ReactFiberBeginWork";
+import { completeWork } from "./ReactFiberCompleteWork";
 
 // The root we're working on
 let workInProgressRoot: any = null;
@@ -89,7 +90,7 @@ function completeUnitOfWork(unitOfWork: any) {
       let next;
       // 生成dom的， 并挂载到fiber.stateNode上
       // 对于tag = IndeterminateComponent / FunctionComponent / ClassComponent 之类的 “非宿主环境提供的组件”， 基本就是什么都不做
-      next = completedWork(current, completedWork);
+      next = completeWork(current, completedWork);
 
       // 上面说completeUnitOfWork可能会产生新的工作就是这里了
       if (next !== null) {

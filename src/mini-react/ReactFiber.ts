@@ -122,6 +122,8 @@ export function createWorkInProgress(current: any, pendingProps: any) {
       key: current.key,
       elementType: current.elementType,
       type: current.type,
+
+      // 复用了dom节点
       stateNode: current.stateNode,
 
       // Fiber
