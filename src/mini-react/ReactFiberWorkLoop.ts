@@ -4,12 +4,15 @@ import {
   Deletion,
   Incomplete,
   NoFlags,
+  Passive,
   PerformedWork,
   Placement,
+  Snapshot,
   Update,
 } from "./constants";
 import { createWorkInProgress } from "./ReactFiber";
 import { beginWork } from "./ReactFiberBeginWork";
+import { commitBeforeMutationLifeCycles } from "./ReactFiberCommitWork";
 import { completeWork } from "./ReactFiberCompleteWork";
 
 export const NoContext = /*             */ 0b0000000;
@@ -222,7 +225,6 @@ function commitRootImpl(root: any) {
   } while (rootWithPendingPassiveEffects !== null);
 
   const finishedWork = root.finishedWork;
-  const lanes = root.finishedLanes;
 
   if (finishedWork === null) {
     return null;
@@ -410,36 +412,17 @@ function commitRootImpl(root: any) {
   return null;
 }
 
+/**
+ * 1. 调用 getSnapShotBeforeUpdate 生命周期函数
+ * 2. 异步调度 uesEffect
+ */
 function commitBeforeMutationEffects() {
   while (nextEffect !== null) {
     const current = nextEffect.alternate;
 
-    if (!shouldFireAfterActiveInstanceBlur && focusedInstanceHandle !== null) {
-      if ((nextEffect.flags & Deletion) !== NoFlags) {
-        if (doesFiberContain(nextEffect, focusedInstanceHandle)) {
-          shouldFireAfterActiveInstanceBlur = true;
-          beforeActiveInstanceBlur();
-        }
-      } else {
-        // TODO: Move this out of the hot path using a dedicated effect tag.
-        if (
-          nextEffect.tag === SuspenseComponent &&
-          isSuspenseBoundaryBeingHidden(current, nextEffect) &&
-          doesFiberContain(nextEffect, focusedInstanceHandle)
-        ) {
-          shouldFireAfterActiveInstanceBlur = true;
-          beforeActiveInstanceBlur();
-        }
-      }
-    }
-
     const flags = nextEffect.flags;
     if ((flags & Snapshot) !== NoFlags) {
-      setCurrentDebugFiberInDEV(nextEffect);
-
-      commitBeforeMutationEffectOnFiber(current, nextEffect);
-
-      resetCurrentDebugFiberInDEV();
+     commitBeforeMutationLifeCycles(current, nextEffect);
     }
     if ((flags & Passive) !== NoFlags) {
       // If there are passive effects, schedule a callback to flush at
