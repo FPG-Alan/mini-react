@@ -5,6 +5,13 @@ import { updateContainer } from "./ReactFiberReconciler";
 
 const randomKey = Math.random().toString(36).slice(2);
 
+export const ELEMENT_NODE = 1;
+export const TEXT_NODE = 3;
+export const COMMENT_NODE = 8;
+export const DOCUMENT_NODE = 9;
+export const DOCUMENT_FRAGMENT_NODE = 11;
+
+
 function render(
   children: ReactElement,
   container: HTMLElement & { _reactRootContainer?: any }
@@ -93,6 +100,19 @@ export function createElement(type: string, props: any): Element {
 
   return domElement;
 }
+
+export function clearContainer(container: Element | Document): void {
+  if (container.nodeType === ELEMENT_NODE) {
+    container.textContent = "";
+  } else if (container.nodeType === DOCUMENT_NODE) {
+    const body = (container as Document).body;
+    if (body != null) {
+      body.textContent = "";
+    }
+  }
+}
+
+
 export function shouldSetTextContent(type: string, props: any) {
   return (
     type === "textarea" ||
