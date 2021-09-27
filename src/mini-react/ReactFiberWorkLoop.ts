@@ -7,12 +7,19 @@ import {
   Passive,
   PerformedWork,
   Placement,
+  PlacementAndUpdate,
   Snapshot,
   Update,
 } from "./constants";
 import { createWorkInProgress } from "./ReactFiber";
 import { beginWork } from "./ReactFiberBeginWork";
-import { commitBeforeMutationLifeCycles } from "./ReactFiberCommitWork";
+import {
+  commitBeforeMutationLifeCycles,
+  commitPlacement,
+  commitResetTextContent,
+  commitWork,
+  commitLifeCycles as commitLayoutEffectOnFiber,
+} from "./ReactFiberCommitWork";
 import { completeWork } from "./ReactFiberCompleteWork";
 
 export const NoContext = /*             */ 0b0000000;
@@ -422,17 +429,18 @@ function commitBeforeMutationEffects() {
 
     const flags = nextEffect.flags;
     if ((flags & Snapshot) !== NoFlags) {
-     commitBeforeMutationLifeCycles(current, nextEffect);
+      commitBeforeMutationLifeCycles(current, nextEffect);
     }
     if ((flags & Passive) !== NoFlags) {
       // If there are passive effects, schedule a callback to flush at
       // the earliest opportunity.
       if (!rootDoesHavePassiveEffects) {
         rootDoesHavePassiveEffects = true;
-        scheduleCallback(NormalSchedulerPriority, () => {
-          flushPassiveEffects();
-          return null;
-        });
+        flushPassiveEffects();
+        // scheduleCallback(NormalSchedulerPriority, () => {
+        //   flushPassiveEffects();
+        //   return null;
+        // });
       }
     }
     nextEffect = nextEffect.nextEffect;
@@ -495,7 +503,7 @@ function commitMutationEffects(root: any) {
         break;
       }
       case Deletion: {
-        commitDeletion(root, nextEffect);
+        // commitDeletion(root, nextEffect);
         break;
       }
     }
@@ -519,6 +527,36 @@ function commitLayoutEffects(root: any) {
     // }
 
     nextEffect = nextEffect.nextEffect;
+  }
+}
+
+// ================================================================
+export function enqueuePendingPassiveHookEffectMount(
+  fiber: any,
+  effect: any
+): void {
+  pendingPassiveHookEffectsMount.push(effect, fiber);
+  if (!rootDoesHavePassiveEffects) {
+    rootDoesHavePassiveEffects = true;
+    scheduleCallback(NormalSchedulerPriority, () => {
+      flushPassiveEffects();
+      return null;
+    });
+  }
+}
+
+export function enqueuePendingPassiveHookEffectUnmount(
+  fiber: any,
+  effect: any
+): void {
+  pendingPassiveHookEffectsUnmount.push(effect, fiber);
+
+  if (!rootDoesHavePassiveEffects) {
+    rootDoesHavePassiveEffects = true;
+    scheduleCallback(NormalSchedulerPriority, () => {
+      flushPassiveEffects();
+      return null;
+    });
   }
 }
 

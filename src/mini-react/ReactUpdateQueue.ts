@@ -287,3 +287,23 @@ function getStateFromUpdate(
   }
   return prevState;
 }
+
+export function commitUpdateQueue(
+  finishedWork: any,
+  finishedQueue: any,
+  instance: any
+): void {
+  // Commit the effects
+  const effects = finishedQueue.effects;
+  finishedQueue.effects = null;
+  if (effects !== null) {
+    for (let i = 0; i < effects.length; i++) {
+      const effect = effects[i];
+      const callback = effect.callback;
+      if (callback !== null) {
+        effect.callback = null;
+        callback(instance);
+      }
+    }
+  }
+}
