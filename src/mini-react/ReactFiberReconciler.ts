@@ -15,7 +15,7 @@ export function updateContainer(children: any, fiberRoot: any) {
 
   const update: any = {
     tag: UpdateState,
-    payload: { children },
+    payload: { element: children },
     callback: null,
 
     next: null,

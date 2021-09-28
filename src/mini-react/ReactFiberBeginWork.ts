@@ -20,6 +20,7 @@ import { cloneUpdateQueue, processUpdateQueue } from "./ReactUpdateQueue";
  */
 let didReceiveUpdate = false;
 export function beginWork(current: any, workInProgress: any) {
+  console.log(">>> begin work", workInProgress);
   // 下面if else流程设置 didReceiveUpdate 的值
   // 首次渲染， didReceiveUpdate 应为false
   if (current !== null) {
@@ -142,6 +143,7 @@ function updateHostComponent(current: any, workInProgress: any) {
  * 3. 返回 wip.child
  */
 function updateHostRoot(current: any, workInProgress: any) {
+  console.log(">>> begin work on host root");
   const nextProps = workInProgress.pendingProps;
   const prevState = workInProgress.memoizedState;
   const prevChildren = prevState !== null ? prevState.element : null;
@@ -158,11 +160,12 @@ function updateHostRoot(current: any, workInProgress: any) {
     // bailout
     return null;
   }
-
+  console.log(nextChildren);
   // 初次渲染时
   // 这里创建第一个wip下第一个节点
   reconcileChildren(current, workInProgress, nextChildren);
 
+  console.log(workInProgress.child);
   // 返回wip.child, 开始对wip tree进行深度优先遍历， 对每个节点进行 beginWork 工作
   return workInProgress.child;
 }

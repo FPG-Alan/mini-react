@@ -17,6 +17,7 @@ function render(
   children: ReactElement,
   container: HTMLElement & { _reactRootContainer?: any }
 ) {
+  console.log("----------render----------");
   let root = container._reactRootContainer;
   let fiberRoot: any;
   if (!root) {
@@ -25,6 +26,7 @@ function render(
       legacyCreateRootFromDOMContainer(container);
     fiberRoot = root._internalRoot;
 
+    console.log(root);
     // Initial mount should not be batched.
     updateContainer(children, fiberRoot);
   } else {
@@ -32,6 +34,8 @@ function render(
     // Update
     updateContainer(children, fiberRoot);
   }
+
+  console.log("----------render done----------");
   return;
 }
 

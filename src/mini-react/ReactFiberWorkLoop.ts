@@ -79,6 +79,7 @@ export function performSyncWorkOnRoot(fiberRoot: any) {
 // render 阶段
 // ----------------------------------------------------------------------------------
 export function renderRootSync(fiberRoot: any) {
+  console.log(">>>> render phase");
   // 暂时不懂， 跳过不看
   //  const prevDispatcher = pushDispatcher();
 
@@ -236,6 +237,7 @@ function commitRootImpl(root: any) {
   if (finishedWork === null) {
     return null;
   }
+  console.log(">>> commit phase", finishedWork);
   root.finishedWork = null;
 
   // commitRoot never returns a continuation; it always finishes synchronously.
@@ -290,6 +292,7 @@ function commitRootImpl(root: any) {
 
   // 如果存在第一个副作用， 对副作用链的循环开始
   if (firstEffect !== null) {
+    console.log(">>> begin loop on effect");
     // let previousLanePriority;
 
     const prevExecutionContext = executionContext;
