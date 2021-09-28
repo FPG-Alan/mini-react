@@ -361,7 +361,7 @@ function commitRootImpl(root: any) {
 
     // Tell Scheduler to yield at the end of the frame, so the browser has an
     // opportunity to paint.
-    requestPaint();
+    // requestPaint();
 
     executionContext = prevExecutionContext;
   } else {
@@ -403,7 +403,7 @@ function commitRootImpl(root: any) {
 
   // Always call this before exiting `commitRoot`, to ensure that any
   // additional work on this root is scheduled.
-  ensureRootIsScheduled(root, window.performance.now());
+  // ensureRootIsScheduled(root, window.performance.now());
 
   if ((executionContext & LegacyUnbatchedContext) !== NoContext) {
     // This is a legacy edge case. We just committed the initial mount of
@@ -414,7 +414,7 @@ function commitRootImpl(root: any) {
   }
 
   // If layout work was scheduled, flush it now.
-  flushSyncCallbackQueue();
+  // flushSyncCallbackQueue();
 
   return null;
 }
@@ -538,10 +538,15 @@ export function enqueuePendingPassiveHookEffectMount(
   pendingPassiveHookEffectsMount.push(effect, fiber);
   if (!rootDoesHavePassiveEffects) {
     rootDoesHavePassiveEffects = true;
-    scheduleCallback(NormalSchedulerPriority, () => {
+
+    // scheduleCallback(NormalSchedulerPriority, () => {
+
+    // });
+
+    setTimeout(() => {
       flushPassiveEffects();
       return null;
-    });
+    }, 5000);
   }
 }
 
@@ -553,10 +558,14 @@ export function enqueuePendingPassiveHookEffectUnmount(
 
   if (!rootDoesHavePassiveEffects) {
     rootDoesHavePassiveEffects = true;
-    scheduleCallback(NormalSchedulerPriority, () => {
+    // scheduleCallback(NormalSchedulerPriority, () => {
+    //   flushPassiveEffects();
+    //   return null;
+    // });
+    setTimeout(() => {
       flushPassiveEffects();
       return null;
-    });
+    }, 5000);
   }
 }
 
@@ -568,7 +577,8 @@ export function flushPassiveEffects(): boolean {
         ? NormalPriority
         : pendingPassiveEffectsRenderPriority;
     pendingPassiveEffectsRenderPriority = NoPriority;
-    return runWithPriority(priorityLevel, flushPassiveEffectsImpl);
+    // return runWithPriority(priorityLevel, flushPassiveEffectsImpl);
+    return flushPassiveEffectsImpl();
   }
   return false;
 }
@@ -590,7 +600,7 @@ function flushPassiveEffectsImpl() {
 
   const prevExecutionContext = executionContext;
   executionContext |= CommitContext;
-  const prevInteractions = pushInteractions(root);
+  // const prevInteractions = pushInteractions(root);
 
   // It's important that ALL pending passive effect destroy functions are called
   // before ANY passive effect create functions are called.
@@ -648,7 +658,7 @@ function flushPassiveEffectsImpl() {
 
   executionContext = prevExecutionContext;
 
-  flushSyncCallbackQueue();
+  // flushSyncCallbackQueue();
 
   // If additional passive effects were scheduled, increment a counter. If this
   // exceeds the limit, we'll fire a warning.
@@ -667,4 +677,9 @@ function prepareFreshStack(root: any) {
   workInProgressRoot = root;
   // 创建wip fiber， 基本就是复制root.current
   workInProgress = createWorkInProgress(root.current, null);
+}
+
+function detachFiberAfterEffects(fiber: any): void {
+  fiber.sibling = null;
+  fiber.stateNode = null;
 }

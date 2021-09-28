@@ -172,10 +172,10 @@ export function insertInContainerBefore(
 
 function shouldAutoFocusHostComponent(type: string, props: any): boolean {
   switch (type) {
-    case 'button':
-    case 'input':
-    case 'select':
-    case 'textarea':
+    case "button":
+    case "input":
+    case "select":
+    case "textarea":
       return !!props.autoFocus;
   }
   return false;
@@ -184,7 +184,7 @@ export function commitMount(
   domElement: any,
   type: string,
   newProps: any,
-  internalInstanceHandle: Object,
+  internalInstanceHandle: Object
 ): void {
   // Despite the naming that might imply otherwise, this method only
   // fires if there is an `Update` effect scheduled during mounting.
@@ -197,7 +197,7 @@ export function commitMount(
   }
 }
 export function commitUpdate(
-  domElement: Element,
+  domElement: HTMLElement,
   updatePayload: any,
   type: string,
   oldProps: any,
@@ -213,26 +213,26 @@ export function commitUpdate(
 
 // Apply the diff.
 export function updateProperties(
-  domElement: Element,
+  domElement: HTMLElement,
   updatePayload: Array<any>,
   tag: string,
   lastRawProps: Object,
-  nextRawProps: Object,
+  nextRawProps: Object
 ): void {
   // Update checked *before* name.
   // In the middle of an update, it is possible to have multiple checked.
   // When a checked radio tries to change name, browser makes another radio's checked false.
   if (
-    tag === 'input' &&
-    (nextRawProps as any).type === 'radio' &&
+    tag === "input" &&
+    (nextRawProps as any).type === "radio" &&
     (nextRawProps as any).name != null
   ) {
     // ReactDOMInputUpdateChecked(domElement, nextRawProps);
 
-    const node =domElement;
+    const node = domElement;
     const checked = (nextRawProps as any).checked;
     if (checked != null) {
-      setValueForProperty(node, 'checked', checked, false);
+      setValueForProperty(node, "checked", checked, false);
     }
   }
 
@@ -243,26 +243,49 @@ export function updateProperties(
     domElement,
     updatePayload,
     wasCustomComponentTag,
-    isCustomComponentTag,
+    isCustomComponentTag
   );
 
   // TODO: Ensure that an update gets scheduled if any of the special props
   // changed.
-  switch (tag) {
-    case 'input':
-      // Update the wrapper around inputs *after* updating props. This has to
-      // happen after `updateDOMProperties`. Otherwise HTML5 input validations
-      // raise warnings and prevent the new value from being assigned.
-      ReactDOMInputUpdateWrapper(domElement, nextRawProps);
-      break;
-    case 'textarea':
-      ReactDOMTextareaUpdateWrapper(domElement, nextRawProps);
-      break;
-    case 'select':
-      // <select> value update needs to occur after <option> children
-      // reconciliation
-      ReactDOMSelectPostUpdateWrapper(domElement, nextRawProps);
-      break;
+  // switch (tag) {
+  //   case 'input':
+  //     // Update the wrapper around inputs *after* updating props. This has to
+  //     // happen after `updateDOMProperties`. Otherwise HTML5 input validations
+  //     // raise warnings and prevent the new value from being assigned.
+  //     ReactDOMInputUpdateWrapper(domElement, nextRawProps);
+  //     break;
+  //   case 'textarea':
+  //     ReactDOMTextareaUpdateWrapper(domElement, nextRawProps);
+  //     break;
+  //   case 'select':
+  //     // <select> value update needs to occur after <option> children
+  //     // reconciliation
+  //     ReactDOMSelectPostUpdateWrapper(domElement, nextRawProps);
+  //     break;
+  // }
+}
+
+function updateDOMProperties(
+  domElement: HTMLElement,
+  updatePayload: Array<any>,
+  wasCustomComponentTag: boolean,
+  isCustomComponentTag: boolean
+): void {
+  // TODO: Handle wasCustomComponentTag
+  for (let i = 0; i < updatePayload.length; i += 2) {
+    const propKey = updatePayload[i];
+    const propValue = updatePayload[i + 1];
+    if (propKey === "style") {
+      setValueForStyles(domElement, propValue);
+    } else if (propKey === "dangerouslySetInnerHTML") {
+      // setInnerHTML(domElement, propValue);
+      domElement.innerHTML = propValue;
+    } else if (propKey === "children") {
+      setTextContent(domElement, propValue);
+    } else {
+      setValueForProperty(domElement, propKey, propValue, isCustomComponentTag);
+    }
   }
 }
 
@@ -553,7 +576,7 @@ export const POSITIVE_NUMERIC = 6;
 export function shouldIgnoreAttribute(
   name: string,
   propertyInfo: any,
-  isCustomComponentTag: boolean,
+  isCustomComponentTag: boolean
 ): boolean {
   if (propertyInfo !== null) {
     return propertyInfo.type === RESERVED;
@@ -563,8 +586,8 @@ export function shouldIgnoreAttribute(
   }
   if (
     name.length > 2 &&
-    (name[0] === 'o' || name[0] === 'O') &&
-    (name[1] === 'n' || name[1] === 'N')
+    (name[0] === "o" || name[0] === "O") &&
+    (name[1] === "n" || name[1] === "N")
   ) {
     return true;
   }
@@ -574,17 +597,17 @@ export function shouldRemoveAttributeWithWarning(
   name: string,
   value: any,
   propertyInfo: any,
-  isCustomComponentTag: boolean,
+  isCustomComponentTag: boolean
 ): boolean {
   if (propertyInfo !== null && propertyInfo.type === RESERVED) {
     return false;
   }
   switch (typeof value) {
-    case 'function':
+    case "function":
     // $FlowIssue symbol is perfectly valid here
-    case 'symbol': // eslint-disable-line
+    case "symbol": // eslint-disable-line
       return true;
-    case 'boolean': {
+    case "boolean": {
       if (isCustomComponentTag) {
         return false;
       }
@@ -592,7 +615,7 @@ export function shouldRemoveAttributeWithWarning(
         return !propertyInfo.acceptsBooleans;
       } else {
         const prefix = name.toLowerCase().slice(0, 5);
-        return prefix !== 'data-' && prefix !== 'aria-';
+        return prefix !== "data-" && prefix !== "aria-";
       }
     }
     default:
@@ -603,9 +626,9 @@ export function shouldRemoveAttribute(
   name: string,
   value: any,
   propertyInfo: any,
-  isCustomComponentTag: boolean,
+  isCustomComponentTag: boolean
 ): boolean {
-  if (value === null || typeof value === 'undefined') {
+  if (value === null || typeof value === "undefined") {
     return true;
   }
   if (
@@ -613,7 +636,7 @@ export function shouldRemoveAttribute(
       name,
       value,
       propertyInfo,
-      isCustomComponentTag,
+      isCustomComponentTag
     )
   ) {
     return true;
@@ -622,7 +645,6 @@ export function shouldRemoveAttribute(
     return false;
   }
   if (propertyInfo !== null) {
-
     switch (propertyInfo.type) {
       case BOOLEAN:
         return !value;
@@ -637,8 +659,6 @@ export function shouldRemoveAttribute(
   return false;
 }
 
-
-
 /**
  * Sets the value for a property on a node.
  *
@@ -646,11 +666,11 @@ export function shouldRemoveAttribute(
  * @param {string} name
  * @param {*} value
  */
- export function setValueForProperty(
+export function setValueForProperty(
   node: Element,
   name: string,
   value: any,
-  isCustomComponentTag: boolean,
+  isCustomComponentTag: boolean
 ) {
   const propertyInfo = null;
   // return properties.hasOwnProperty(name) ? properties[name] : null;
@@ -667,49 +687,42 @@ export function shouldRemoveAttribute(
       if (value === null) {
         node.removeAttribute(attributeName);
       } else {
-        node.setAttribute(
-          attributeName,
-          enableTrustedTypesIntegration ? (value: any) : '' + (value: any),
-        );
+        node.setAttribute(attributeName, value);
       }
     }
     return;
   }
-  const {mustUseProperty} = propertyInfo;
+  const { mustUseProperty } = propertyInfo;
   if (mustUseProperty) {
-    const {propertyName} = propertyInfo;
+    const { propertyName } = propertyInfo;
     if (value === null) {
-      const {type} = propertyInfo;
-      (node: any)[propertyName] = type === BOOLEAN ? false : '';
+      const { type } = propertyInfo;
+      (node as any)[propertyName] = type === BOOLEAN ? false : "";
     } else {
       // Contrary to `setAttribute`, object properties are properly
       // `toString`ed by IE8/9.
-      (node: any)[propertyName] = value;
+      (node as any)[propertyName] = value;
     }
     return;
   }
   // The rest are treated as attributes with special cases.
-  const {attributeName, attributeNamespace} = propertyInfo;
+  const { attributeName, attributeNamespace } = propertyInfo;
   if (value === null) {
     node.removeAttribute(attributeName);
   } else {
-    const {type} = propertyInfo;
+    const { type } = propertyInfo;
     let attributeValue;
     if (type === BOOLEAN || (type === OVERLOADED_BOOLEAN && value === true)) {
       // If attribute type is boolean, we know for sure it won't be an execution sink
       // and we won't require Trusted Type here.
-      attributeValue = '';
+      attributeValue = "";
     } else {
       // `setAttribute` with objects becomes only `[object]` in IE8/9,
       // ('' + value) makes it output the correct toString()-value.
-      if (enableTrustedTypesIntegration) {
-        attributeValue = (value: any);
-      } else {
-        attributeValue = '' + (value: any);
-      }
-      if (propertyInfo.sanitizeURL) {
-        sanitizeURL(attributeValue.toString());
-      }
+      attributeValue = "" + value;
+      // if ((propertyInfo as any).sanitizeURL) {
+      //   sanitizeURL(attributeValue.toString());
+      // }
     }
     if (attributeNamespace) {
       node.setAttributeNS(attributeNamespace, attributeName, attributeValue);
@@ -718,6 +731,187 @@ export function shouldRemoveAttribute(
     }
   }
 }
+/* eslint-disable max-len */
+export const ATTRIBUTE_NAME_START_CHAR =
+  ":A-Z_a-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD";
+/* eslint-enable max-len */
+export const ATTRIBUTE_NAME_CHAR =
+  ATTRIBUTE_NAME_START_CHAR + "\\-.0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040";
+const VALID_ATTRIBUTE_NAME_REGEX = new RegExp(
+  "^[" + ATTRIBUTE_NAME_START_CHAR + "][" + ATTRIBUTE_NAME_CHAR + "]*$"
+);
 
+const illegalAttributeNameCache: any = {};
+const validatedAttributeNameCache: any = {};
+function isAttributeNameSafe(attributeName: string): boolean {
+  if (
+    Object.prototype.hasOwnProperty.call(
+      validatedAttributeNameCache,
+      attributeName
+    )
+  ) {
+    return true;
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(
+      illegalAttributeNameCache,
+      attributeName
+    )
+  ) {
+    return false;
+  }
+  if (VALID_ATTRIBUTE_NAME_REGEX.test(attributeName)) {
+    validatedAttributeNameCache[attributeName] = true;
+    return true;
+  }
+  illegalAttributeNameCache[attributeName] = true;
+
+  return false;
+}
+
+function isCustomComponent(tagName: string, props: Object) {
+  if (tagName.indexOf("-") === -1) {
+    return typeof (props as any).is === "string";
+  }
+  switch (tagName) {
+    // These are reserved SVG and MathML elements.
+    // We don't mind this list too much because we expect it to never grow.
+    // The alternative is to track the namespace in a few places which is convoluted.
+    // https://w3c.github.io/webcomponents/spec/custom/#custom-elements-core-concepts
+    case "annotation-xml":
+    case "color-profile":
+    case "font-face":
+    case "font-face-src":
+    case "font-face-uri":
+    case "font-face-format":
+    case "font-face-name":
+    case "missing-glyph":
+      return false;
+    default:
+      return true;
+  }
+}
+
+/**
+ * Sets the value for multiple styles on a node.  If a value is specified as
+ * '' (empty string), the corresponding style property will be unset.
+ *
+ * @param {DOMElement} node
+ * @param {object} styles
+ */
+export function setValueForStyles(node: HTMLElement, styles: any) {
+  const style = node.style;
+  for (let styleName in styles) {
+    if (!styles.hasOwnProperty(styleName)) {
+      continue;
+    }
+    const isCustomProperty = styleName.indexOf("--") === 0;
+
+    const styleValue = dangerousStyleValue(
+      styleName,
+      styles[styleName],
+      isCustomProperty
+    );
+    if (styleName === "float") {
+      styleName = "cssFloat";
+    }
+    if (isCustomProperty) {
+      style.setProperty(styleName, styleValue);
+    } else {
+      (style as any)[styleName] = styleValue;
+    }
+  }
+}
+
+/**
+ * Convert a value into the proper css writable value. The style name `name`
+ * should be logical (no hyphens), as specified
+ * in `CSSProperty.isUnitlessNumber`.
+ *
+ * @param {string} name CSS property name such as `topMargin`.
+ * @param {*} value CSS property value such as `10px`.
+ * @return {string} Normalized style value with dimensions applied.
+ */
+function dangerousStyleValue(
+  name: string,
+  value: any,
+  isCustomProperty: boolean
+) {
+  // Note that we've removed escapeTextForBrowser() calls here since the
+  // whole string will be escaped when the attribute is injected into
+  // the markup. If you provide unsafe user data here they can inject
+  // arbitrary CSS which may be problematic (I couldn't repro this):
+  // https://www.owasp.org/index.php/XSS_Filter_Evasion_Cheat_Sheet
+  // http://www.thespanner.co.uk/2007/11/26/ultimate-xss-css-injection/
+  // This is not an XSS hole but instead a potential CSS injection issue
+  // which has lead to a greater discussion about how we're going to
+  // trust URLs moving forward. See #2115901
+
+  const isEmpty = value == null || typeof value === "boolean" || value === "";
+  if (isEmpty) {
+    return "";
+  }
+
+  if (
+    !isCustomProperty &&
+    typeof value === "number" &&
+    value !== 0 &&
+    !(isUnitlessNumber.hasOwnProperty(name) && (isUnitlessNumber as any)[name])
+  ) {
+    return value + "px"; // Presumes implicit 'px' suffix for unitless numbers
+  }
+
+  return ("" + value).trim();
+}
+
+/**
+ * CSS properties which accept numbers but are not in units of "px".
+ */
+export const isUnitlessNumber = {
+  animationIterationCount: true,
+  borderImageOutset: true,
+  borderImageSlice: true,
+  borderImageWidth: true,
+  boxFlex: true,
+  boxFlexGroup: true,
+  boxOrdinalGroup: true,
+  columnCount: true,
+  columns: true,
+  flex: true,
+  flexGrow: true,
+  flexPositive: true,
+  flexShrink: true,
+  flexNegative: true,
+  flexOrder: true,
+  gridArea: true,
+  gridRow: true,
+  gridRowEnd: true,
+  gridRowSpan: true,
+  gridRowStart: true,
+  gridColumn: true,
+  gridColumnEnd: true,
+  gridColumnSpan: true,
+  gridColumnStart: true,
+  fontWeight: true,
+  lineClamp: true,
+  lineHeight: true,
+  opacity: true,
+  order: true,
+  orphans: true,
+  tabSize: true,
+  widows: true,
+  zIndex: true,
+  zoom: true,
+
+  // SVG-related properties
+  fillOpacity: true,
+  floodOpacity: true,
+  stopOpacity: true,
+  strokeDasharray: true,
+  strokeDashoffset: true,
+  strokeMiterlimit: true,
+  strokeOpacity: true,
+  strokeWidth: true,
+};
 
 export { render };
