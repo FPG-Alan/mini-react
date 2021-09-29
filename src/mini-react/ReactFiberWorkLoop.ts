@@ -19,6 +19,7 @@ import {
   commitResetTextContent,
   commitWork,
   commitLifeCycles as commitLayoutEffectOnFiber,
+  commitDeletion,
 } from "./ReactFiberCommitWork";
 import { completeWork } from "./ReactFiberCompleteWork";
 
@@ -449,7 +450,12 @@ function commitBeforeMutationEffects() {
     nextEffect = nextEffect.nextEffect;
   }
 }
-
+/**
+ * commit 第二阶段
+ * 1. 解绑ref
+ * 2. 根据 fiber flags对dom进行操作(插入/更新/删除)
+ * 3. 上一步 fiber flags == Update = 4 时会执行 useLayoutEffect hook 的销毁函数
+ */
 function commitMutationEffects(root: any) {
   // TODO: Should probably move the bulk of this function to commitWork.
   while (nextEffect !== null) {
@@ -506,7 +512,7 @@ function commitMutationEffects(root: any) {
         break;
       }
       case Deletion: {
-        // commitDeletion(root, nextEffect);
+        commitDeletion(root, nextEffect);
         break;
       }
     }
@@ -514,7 +520,11 @@ function commitMutationEffects(root: any) {
     nextEffect = nextEffect.nextEffect;
   }
 }
-
+/**
+ * commit 第三阶段, 此时dom操作已经做完了
+ * 1. 赋值给ref
+ * 2. 根据fiber.tag执行对应生命周期函数(componentDidMount / Update)或者useLayoutEffect回调
+ */
 function commitLayoutEffects(root: any) {
   // TODO: Should probably move the bulk of this function to commitWork.
   while (nextEffect !== null) {

@@ -1,18 +1,11 @@
 import {
-  Block,
-  ClassComponent,
   ContentReset,
-  ForwardRef,
   FunctionComponent,
   HostComponent,
-  HostPortal,
   HostRoot,
   HostText,
-  IncompleteClassComponent,
   NoFlags,
   Placement,
-  Profiler,
-  SimpleMemoComponent,
   Snapshot,
   Update,
 } from "./constants";
@@ -25,6 +18,8 @@ import {
   commitUpdate,
   insertBefore,
   insertInContainerBefore,
+  removeChild,
+  removeChildFromContainer,
   resetTextContent,
 } from "./react-dom";
 import { HasEffect, Layout, Passive } from "./ReactFiberHooks";
@@ -33,6 +28,8 @@ import {
   enqueuePendingPassiveHookEffectUnmount,
 } from "./ReactFiberWorkLoop";
 import { commitUpdateQueue } from "./ReactUpdateQueue";
+
+// --------------------------- commitBeforeMutationEffects ---------------------------
 
 /**
  * 1. 对 ClassComponent， 调用 getSnapshotBeforeUpdate
@@ -44,29 +41,9 @@ export function commitBeforeMutationLifeCycles(
 ) {
   switch (finishedWork.tag) {
     case FunctionComponent:
-    case ForwardRef:
-    case SimpleMemoComponent:
-    case Block: {
-      return;
-    }
-    case ClassComponent: {
-      if (finishedWork.flags & Snapshot) {
-        if (current !== null) {
-          const prevProps = current.memoizedProps;
-          const prevState = current.memoizedState;
-          const instance = finishedWork.stateNode;
-          // We could update instance props and state here,
-          // but instead we rely on them being set during last render.
-          // TODO: revisit this when we implement resuming.
-          const snapshot = instance.getSnapshotBeforeUpdate(
-            finishedWork.elementType === finishedWork.type
-              ? prevProps
-              : resolveDefaultProps(finishedWork.type, prevProps),
-            prevState
-          );
-          instance.__reactInternalSnapshotBeforeUpdate = snapshot;
-        }
-      }
+    case HostComponent:
+    case HostText: {
+      // Nothing to do for these component types
       return;
     }
     case HostRoot: {
@@ -76,162 +53,19 @@ export function commitBeforeMutationLifeCycles(
       }
       return;
     }
-    case HostComponent:
-    case HostText:
-    case HostPortal:
-    case IncompleteClassComponent:
-      // Nothing to do for these component types
-      return;
-  }
-}
-export function commitLifeCycles(
-  finishedRoot: any,
-  current: any,
-  finishedWork: any
-): void {
-  switch (finishedWork.tag) {
-    case FunctionComponent:
-    case ForwardRef:
-    case SimpleMemoComponent:
-    case Block: {
-      // At this point layout effects have already been destroyed (during mutation phase).
-      // This is done to prevent sibling component effects from interfering with each other,
-      // e.g. a destroy function in one component should never override a ref set
-      // by a create function in another component during the same commit.
-      commitHookEffectListMount(Layout | HasEffect, finishedWork);
-
-      schedulePassiveEffects(finishedWork);
-      return;
-    }
-    case ClassComponent: {
-      const instance = finishedWork.stateNode;
-      if (finishedWork.flags & Update) {
-        if (current === null) {
-          instance.componentDidMount();
-        } else {
-          const prevProps =
-            finishedWork.elementType === finishedWork.type
-              ? current.memoizedProps
-              : resolveDefaultProps(finishedWork.type, current.memoizedProps);
-          const prevState = current.memoizedState;
-
-          instance.componentDidUpdate(
-            prevProps,
-            prevState,
-            instance.__reactInternalSnapshotBeforeUpdate
-          );
-        }
-      }
-
-      // TODO: I think this is now always non-null by the time it reaches the
-      // commit phase. Consider removing the type check.
-      const updateQueue = finishedWork.updateQueue;
-      if (updateQueue !== null) {
-        // We could update instance props and state here,
-        // but instead we rely on them being set during last render.
-        // TODO: revisit this when we implement resuming.
-        commitUpdateQueue(finishedWork, updateQueue, instance);
-      }
-      return;
-    }
-    case HostRoot: {
-      // TODO: I think this is now always non-null by the time it reaches the
-      // commit phase. Consider removing the type check.
-      const updateQueue = finishedWork.updateQueue;
-      if (updateQueue !== null) {
-        let instance = null;
-        if (finishedWork.child !== null) {
-          switch (finishedWork.child.tag) {
-            case HostComponent:
-              instance = finishedWork.child.stateNode;
-              break;
-            case ClassComponent:
-              instance = finishedWork.child.stateNode;
-              break;
-          }
-        }
-        commitUpdateQueue(finishedWork, updateQueue, instance);
-      }
-      return;
-    }
-    case HostComponent: {
-      const instance = finishedWork.stateNode;
-
-      // Renderers may schedule work to be done after host components are mounted
-      // (eg DOM renderer may schedule auto-focus for inputs and form controls).
-      // These effects should only be committed when components are first mounted,
-      // aka when there is no current/alternate.
-      if (current === null && finishedWork.flags & Update) {
-        const type = finishedWork.type;
-        const props = finishedWork.memoizedProps;
-        commitMount(instance, type, props, finishedWork);
-      }
-
-      return;
-    }
-    case HostText: {
-      // We have no life-cycles associated with text.
-      return;
-    }
-    case HostPortal: {
-      // We have no life-cycles associated with portals.
-      return;
-    }
-    case IncompleteClassComponent:
-      return;
   }
 }
 
-export function resolveDefaultProps(Component: any, baseProps: Object): Object {
-  if (Component && Component.defaultProps) {
-    // Resolve default props. Taken from ReactElement
-    const props = Object.assign({}, baseProps);
-    const defaultProps = Component.defaultProps;
-    for (const propName in defaultProps) {
-      if ((props as any)[propName] === undefined) {
-        (props as any)[propName] = defaultProps[propName];
-      }
-    }
-    return props;
-  }
-  return baseProps;
+// ---------------------------------------------------------------------------
+
+// --------------------------- commitMutationEffects ---------------------------
+export function commitResetTextContent(current: any) {
+  resetTextContent(current.stateNode);
 }
 
-function commitHookEffectListMount(tag: number, finishedWork: any) {
-  const updateQueue = finishedWork.updateQueue;
-  const lastEffect = updateQueue !== null ? updateQueue.lastEffect : null;
-  if (lastEffect !== null) {
-    const firstEffect = lastEffect.next;
-    let effect = firstEffect;
-    do {
-      if ((effect.tag & tag) === tag) {
-        // Mount
-        const create = effect.create;
-        effect.destroy = create();
-      }
-      effect = effect.next;
-    } while (effect !== firstEffect);
-  }
-}
-
-function schedulePassiveEffects(finishedWork: any) {
-  const updateQueue = finishedWork.updateQueue;
-  const lastEffect = updateQueue !== null ? updateQueue.lastEffect : null;
-  if (lastEffect !== null) {
-    const firstEffect = lastEffect.next;
-    let effect = firstEffect;
-    do {
-      const { next, tag } = effect;
-      if ((tag & Passive) !== NoFlags && (tag & HasEffect) !== NoFlags) {
-        // enqueuePendingPassiveHookEffectUnmount(finishedWork, effect);
-        enqueuePendingPassiveHookEffectUnmount(finishedWork, effect);
-        // enqueuePendingPassiveHookEffectMount(finishedWork, effect);
-        enqueuePendingPassiveHookEffectMount(finishedWork, effect);
-      }
-      effect = next;
-    } while (effect !== firstEffect);
-  }
-}
+/**
+ * 执行插入工作
+ */
 export function commitPlacement(finishedWork: any): void {
   // Recursively insert all host nodes into the parent.
   const parentFiber = getHostParentFiber(finishedWork);
@@ -246,10 +80,6 @@ export function commitPlacement(finishedWork: any): void {
       isContainer = false;
       break;
     case HostRoot:
-      parent = parentStateNode.containerInfo;
-      isContainer = true;
-      break;
-    case HostPortal:
       parent = parentStateNode.containerInfo;
       isContainer = true;
       break;
@@ -270,33 +100,127 @@ export function commitPlacement(finishedWork: any): void {
     insertOrAppendPlacementNode(finishedWork, before, parent);
   }
 }
+// 拿到父级中tag为Host组件的
+function getHostParentFiber(fiber: any): any {
+  let parent = fiber.return;
+  while (parent !== null) {
+    if (isHostParent(parent)) {
+      return parent;
+    }
+    parent = parent.return;
+  }
+}
+function isHostParent(fiber: any): boolean {
+  return fiber.tag === HostComponent || fiber.tag === HostRoot;
+}
+function getHostSibling(fiber: any) {
+  // We're going to search forward into the tree until we find a sibling host
+  // node. Unfortunately, if multiple insertions are done in a row we have to
+  // search past them. This leads to exponential search for the next sibling.
+  // TODO: Find a more efficient way to do this.
+  let node = fiber;
+  siblings: while (true) {
+    // If we didn't find anything, let's try the next sibling.
+    while (node.sibling === null) {
+      if (node.return === null || isHostParent(node.return)) {
+        // If we pop out of the root or hit the parent the fiber we are the
+        // last sibling.
+        return null;
+      }
+      node = node.return;
+    }
+    node.sibling.return = node.return;
+    node = node.sibling;
+    while (node.tag !== HostComponent && node.tag !== HostText) {
+      // If it is not host node and, we might have a host node inside it.
+      // Try to search down until we find one.
+      if (node.flags & Placement) {
+        // If we don't have a child, try the siblings instead.
+        continue siblings;
+      }
+      // If we don't have a child, try the siblings instead.
+      // We also skip portals because they are not part of this host tree.
+      if (node.child === null) {
+        continue siblings;
+      } else {
+        node.child.return = node;
+        node = node.child;
+      }
+    }
+    // Check if this host node is stable or about to be placed.
+    if (!(node.flags & Placement)) {
+      // Found it!
+      return node.stateNode;
+    }
+  }
+}
 
-// export function commitDeletion(finishedRoot: any, current: any): void {
-//   // Recursively delete all host nodes from the parent.
-//   // Detach refs and call componentWillUnmount() on the whole subtree.
-//   unmountHostComponents(finishedRoot, current, renderPriorityLevel);
-//   const alternate = current.alternate;
-//   detachFiberMutation(current);
-//   if (alternate !== null) {
-//     detachFiberMutation(alternate);
-//   }
-// }
+function insertOrAppendPlacementNodeIntoContainer(
+  node: any,
+  before: Element,
+  parent: Element
+): void {
+  const { tag } = node;
+  const isHost = tag === HostComponent || tag === HostText;
+  if (isHost) {
+    const stateNode = isHost ? node.stateNode : node.stateNode.instance;
+    if (before) {
+      insertInContainerBefore(parent, stateNode, before);
+    } else {
+      appendChildToContainer(parent, stateNode);
+    }
+  } else {
+    const child = node.child;
+    if (child !== null) {
+      insertOrAppendPlacementNodeIntoContainer(child, before, parent);
+      let sibling = child.sibling;
+      while (sibling !== null) {
+        insertOrAppendPlacementNodeIntoContainer(sibling, before, parent);
+        sibling = sibling.sibling;
+      }
+    }
+  }
+}
 
+function insertOrAppendPlacementNode(
+  node: any,
+  before: Element,
+  parent: Element
+): void {
+  const { tag } = node;
+  const isHost = tag === HostComponent || tag === HostText;
+  if (isHost) {
+    const stateNode = isHost ? node.stateNode : node.stateNode.instance;
+    if (before) {
+      insertBefore(parent, stateNode, before);
+    } else {
+      appendChild(parent, stateNode);
+    }
+  } else {
+    const child = node.child;
+    if (child !== null) {
+      insertOrAppendPlacementNode(child, before, parent);
+      let sibling = child.sibling;
+      while (sibling !== null) {
+        insertOrAppendPlacementNode(sibling, before, parent);
+        sibling = sibling.sibling;
+      }
+    }
+  }
+}
+
+/**
+ * 执行更新工作
+ */
 export function commitWork(current: any, finishedWork: any): void {
   switch (finishedWork.tag) {
-    case FunctionComponent:
-    case ForwardRef:
-    case SimpleMemoComponent:
-    case Block: {
+    case FunctionComponent: {
       // Layout effects are destroyed during the mutation phase so that all
       // destroy functions for all fibers are called before any create functions.
       // This prevents sibling component effects from interfering with each other,
       // e.g. a destroy function in one component should never override a ref set
       // by a create function in another component during the same commit.
       commitHookEffectListUnmount(Layout | HasEffect, finishedWork);
-      return;
-    }
-    case ClassComponent: {
       return;
     }
     case HostComponent: {
@@ -334,7 +258,6 @@ export function commitWork(current: any, finishedWork: any): void {
     }
   }
 }
-
 function commitHookEffectListUnmount(tag: number, finishedWork: any) {
   const updateQueue = finishedWork.updateQueue;
   const lastEffect = updateQueue !== null ? updateQueue.lastEffect : null;
@@ -355,129 +278,283 @@ function commitHookEffectListUnmount(tag: number, finishedWork: any) {
   }
 }
 
-// 拿到父级中tag为Host组件的
-function getHostParentFiber(fiber: any): any {
-  let parent = fiber.return;
-  while (parent !== null) {
-    if (isHostParent(parent)) {
-      return parent;
-    }
-    parent = parent.return;
+/**
+ * 执行删除工作
+ */
+export function commitDeletion(finishedRoot: any, current: any): void {
+  // Recursively delete all host nodes from the parent.
+  // Detach refs and call componentWillUnmount() on the whole subtree.
+  unmountHostComponents(finishedRoot, current);
+  const alternate = current.alternate;
+  detachFiberMutation(current);
+  if (alternate !== null) {
+    detachFiberMutation(alternate);
   }
 }
+function unmountHostComponents(finishedRoot: any, current: any): void {
+  // We only have the top Fiber that was deleted but we need to recurse down its
+  // children to find all the terminal nodes.
+  let node = current;
 
-function isHostParent(fiber: any): boolean {
-  return (
-    fiber.tag === HostComponent ||
-    fiber.tag === HostRoot ||
-    fiber.tag === HostPortal
-  );
-}
+  // Each iteration, currentParent is populated with node's host parent if not
+  // currentParentIsValid.
+  let currentParentIsValid = false;
 
-function getHostSibling(fiber: any) {
-  // We're going to search forward into the tree until we find a sibling host
-  // node. Unfortunately, if multiple insertions are done in a row we have to
-  // search past them. This leads to exponential search for the next sibling.
-  // TODO: Find a more efficient way to do this.
-  let node = fiber;
-  siblings: while (true) {
-    // If we didn't find anything, let's try the next sibling.
+  // Note: these two variables *must* always be updated together.
+  let currentParent;
+  let currentParentIsContainer;
+
+  while (true) {
+    if (!currentParentIsValid) {
+      let parent = node.return;
+      findParent: while (true) {
+        const parentStateNode = parent.stateNode;
+        switch (parent.tag) {
+          case HostComponent:
+            currentParent = parentStateNode;
+            currentParentIsContainer = false;
+            break findParent;
+          case HostRoot:
+            currentParent = parentStateNode.containerInfo;
+            currentParentIsContainer = true;
+            break findParent;
+        }
+        parent = parent.return;
+      }
+      currentParentIsValid = true;
+    }
+
+    if (node.tag === HostComponent || node.tag === HostText) {
+      commitNestedUnmounts(finishedRoot, node);
+      // After all the children have unmounted, it is now safe to remove the
+      // node from the tree.
+      if (currentParentIsContainer) {
+        removeChildFromContainer(currentParent, node.stateNode);
+      } else {
+        removeChild(currentParent, node.stateNode);
+      }
+      // Don't visit children because we already visited them.
+    } else {
+      commitUnmount(finishedRoot, node);
+      // Visit children because we may find more host components below.
+      if (node.child !== null) {
+        node.child.return = node;
+        node = node.child;
+        continue;
+      }
+    }
+    if (node === current) {
+      return;
+    }
     while (node.sibling === null) {
-      if (node.return === null || isHostParent(node.return)) {
-        // If we pop out of the root or hit the parent the fiber we are the
-        // last sibling.
-        return null;
+      if (node.return === null || node.return === current) {
+        return;
       }
       node = node.return;
     }
     node.sibling.return = node.return;
     node = node.sibling;
-    while (node.tag !== HostComponent && node.tag !== HostText) {
-      // If it is not host node and, we might have a host node inside it.
-      // Try to search down until we find one.
-      if (node.flags & Placement) {
-        // If we don't have a child, try the siblings instead.
-        continue siblings;
+  }
+}
+function commitUnmount(finishedRoot: any, current: any): void {
+  switch (current.tag) {
+    case FunctionComponent: {
+      const updateQueue = current.updateQueue;
+      if (updateQueue !== null) {
+        const lastEffect = updateQueue.lastEffect;
+        if (lastEffect !== null) {
+          const firstEffect = lastEffect.next;
+
+          let effect = firstEffect;
+          do {
+            const { destroy, tag } = effect;
+            if (destroy !== undefined) {
+              if ((tag & Passive) !== NoFlags) {
+                enqueuePendingPassiveHookEffectUnmount(current, effect);
+              } else {
+                safelyCallDestroy(current, destroy);
+              }
+            }
+            effect = effect.next;
+          } while (effect !== firstEffect);
+        }
       }
-      // If we don't have a child, try the siblings instead.
-      // We also skip portals because they are not part of this host tree.
-      if (node.child === null || node.tag === HostPortal) {
-        continue siblings;
-      } else {
-        node.child.return = node;
-        node = node.child;
-      }
+      return;
     }
-    // Check if this host node is stable or about to be placed.
-    if (!(node.flags & Placement)) {
-      // Found it!
-      return node.stateNode;
+
+    case HostComponent: {
+      safelyDetachRef(current);
+      return;
     }
   }
 }
-
-function insertOrAppendPlacementNodeIntoContainer(
-  node: any,
-  before: Element,
-  parent: Element
-): void {
-  const { tag } = node;
-  const isHost = tag === HostComponent || tag === HostText;
-  if (isHost) {
-    const stateNode = isHost ? node.stateNode : node.stateNode.instance;
-    if (before) {
-      insertInContainerBefore(parent, stateNode, before);
+function commitNestedUnmounts(finishedRoot: any, root: any): void {
+  // While we're inside a removed host node we don't want to call
+  // removeChild on the inner nodes because they're removed by the top
+  // call anyway. We also want to call componentWillUnmount on all
+  // composites before this host node is removed from the tree. Therefore
+  // we do an inner loop while we're still inside the host node.
+  let node = root;
+  while (true) {
+    commitUnmount(finishedRoot, node);
+    // Visit children because they may contain more composite or host nodes.
+    // Skip portals because commitUnmount() currently visits them recursively.
+    if (node.child !== null) {
+      node.child.return = node;
+      node = node.child;
+      continue;
+    }
+    if (node === root) {
+      return;
+    }
+    while (node.sibling === null) {
+      if (node.return === null || node.return === root) {
+        return;
+      }
+      node = node.return;
+    }
+    node.sibling.return = node.return;
+    node = node.sibling;
+  }
+}
+function detachFiberMutation(fiber: any) {
+  // Cut off the return pointers to disconnect it from the tree. Ideally, we
+  // should clear the child pointer of the parent alternate to let this
+  // get GC:ed but we don't know which for sure which parent is the current
+  // one so we'll settle for GC:ing the subtree of this child. This child
+  // itself will be GC:ed when the parent updates the next time.
+  // Note: we cannot null out sibling here, otherwise it can cause issues
+  // with findDOMNode and how it requires the sibling field to carry out
+  // traversal in a later effect. See PR #16820. We now clear the sibling
+  // field after effects, see: detachFiberAfterEffects.
+  //
+  // Don't disconnect stateNode now; it will be detached in detachFiberAfterEffects.
+  // It may be required if the current component is an error boundary,
+  // and one of its descendants throws while unmounting a passive effect.
+  fiber.alternate = null;
+  fiber.child = null;
+  fiber.dependencies = null;
+  fiber.firstEffect = null;
+  fiber.lastEffect = null;
+  fiber.memoizedProps = null;
+  fiber.memoizedState = null;
+  fiber.pendingProps = null;
+  fiber.return = null;
+  fiber.updateQueue = null;
+}
+function safelyCallDestroy(current: any, destroy: () => void) {
+  try {
+    destroy();
+  } catch (error) {
+    console.log(error);
+    // captureCommitPhaseError(current, error);
+  }
+}
+function safelyDetachRef(current: any) {
+  const ref = current.ref;
+  if (ref !== null) {
+    if (typeof ref === "function") {
+      try {
+        ref(null);
+      } catch (refError) {
+        console.log(refError);
+        // captureCommitPhaseError(current, refError);
+      }
     } else {
-      appendChildToContainer(parent, stateNode);
-    }
-  } else if (tag === HostPortal) {
-    // If the insertion itself is a portal, then we don't want to traverse
-    // down its children. Instead, we'll get insertions from each child in
-    // the portal directly.
-  } else {
-    const child = node.child;
-    if (child !== null) {
-      insertOrAppendPlacementNodeIntoContainer(child, before, parent);
-      let sibling = child.sibling;
-      while (sibling !== null) {
-        insertOrAppendPlacementNodeIntoContainer(sibling, before, parent);
-        sibling = sibling.sibling;
-      }
+      ref.current = null;
     }
   }
 }
+// ---------------------------------------------------------------------------
 
-function insertOrAppendPlacementNode(
-  node: any,
-  before: Element,
-  parent: Element
+// --------------------------- commitLayoutEffects ---------------------------
+export function commitLifeCycles(
+  finishedRoot: any,
+  current: any,
+  finishedWork: any
 ): void {
-  const { tag } = node;
-  const isHost = tag === HostComponent || tag === HostText;
-  if (isHost) {
-    const stateNode = isHost ? node.stateNode : node.stateNode.instance;
-    if (before) {
-      insertBefore(parent, stateNode, before);
-    } else {
-      appendChild(parent, stateNode);
+  switch (finishedWork.tag) {
+    case FunctionComponent: {
+      // At this point layout effects have already been destroyed (during mutation phase).
+      // This is done to prevent sibling component effects from interfering with each other,
+      // e.g. a destroy function in one component should never override a ref set
+      // by a create function in another component during the same commit.
+      commitHookEffectListMount(Layout | HasEffect, finishedWork);
+
+      schedulePassiveEffects(finishedWork);
+      return;
     }
-  } else if (tag === HostPortal) {
-    // If the insertion itself is a portal, then we don't want to traverse
-    // down its children. Instead, we'll get insertions from each child in
-    // the portal directly.
-  } else {
-    const child = node.child;
-    if (child !== null) {
-      insertOrAppendPlacementNode(child, before, parent);
-      let sibling = child.sibling;
-      while (sibling !== null) {
-        insertOrAppendPlacementNode(sibling, before, parent);
-        sibling = sibling.sibling;
+    case HostRoot: {
+      // TODO: I think this is now always non-null by the time it reaches the
+      // commit phase. Consider removing the type check.
+      const updateQueue = finishedWork.updateQueue;
+      if (updateQueue !== null) {
+        let instance = null;
+        if (finishedWork.child !== null) {
+          switch (finishedWork.child.tag) {
+            case HostComponent:
+              instance = finishedWork.child.stateNode;
+              break;
+          }
+        }
+        commitUpdateQueue(finishedWork, updateQueue, instance);
       }
+      return;
+    }
+    case HostComponent: {
+      const instance = finishedWork.stateNode;
+
+      // Renderers may schedule work to be done after host components are mounted
+      // (eg DOM renderer may schedule auto-focus for inputs and form controls).
+      // These effects should only be committed when components are first mounted,
+      // aka when there is no current/alternate.
+      if (current === null && finishedWork.flags & Update) {
+        const type = finishedWork.type;
+        const props = finishedWork.memoizedProps;
+        commitMount(instance, type, props, finishedWork);
+      }
+
+      return;
+    }
+    case HostText: {
+      // We have no life-cycles associated with text.
+      return;
     }
   }
 }
-
-export function commitResetTextContent(current: any) {
-  resetTextContent(current.stateNode);
+function commitHookEffectListMount(tag: number, finishedWork: any) {
+  const updateQueue = finishedWork.updateQueue;
+  const lastEffect = updateQueue !== null ? updateQueue.lastEffect : null;
+  if (lastEffect !== null) {
+    const firstEffect = lastEffect.next;
+    let effect = firstEffect;
+    do {
+      if ((effect.tag & tag) === tag) {
+        // Mount
+        const create = effect.create;
+        effect.destroy = create();
+      }
+      effect = effect.next;
+    } while (effect !== firstEffect);
+  }
 }
+
+function schedulePassiveEffects(finishedWork: any) {
+  const updateQueue = finishedWork.updateQueue;
+  const lastEffect = updateQueue !== null ? updateQueue.lastEffect : null;
+  if (lastEffect !== null) {
+    const firstEffect = lastEffect.next;
+    let effect = firstEffect;
+    do {
+      const { next, tag } = effect;
+      if ((tag & Passive) !== NoFlags && (tag & HasEffect) !== NoFlags) {
+        // enqueuePendingPassiveHookEffectUnmount(finishedWork, effect);
+        enqueuePendingPassiveHookEffectUnmount(finishedWork, effect);
+        // enqueuePendingPassiveHookEffectMount(finishedWork, effect);
+        enqueuePendingPassiveHookEffectMount(finishedWork, effect);
+      }
+      effect = next;
+    } while (effect !== firstEffect);
+  }
+}
+// ---------------------------------------------------------------------------

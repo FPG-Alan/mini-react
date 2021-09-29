@@ -132,7 +132,6 @@ export function insertBefore(
 export function appendChild(parentInstance: Element, child: Element): void {
   parentInstance.appendChild(child);
 }
-
 export function appendChildToContainer(
   container: Element,
   child: Element
@@ -160,6 +159,19 @@ export function appendChildToContainer(
   ) {
     // TODO: This cast may not be sound for SVG, MathML or custom elements.
     // trapClickOnNonInteractiveElement(((parentNode: any): HTMLElement));
+  }
+}
+export function removeChild(parentInstance: Element, child: Element): void {
+  parentInstance.removeChild(child);
+}
+export function removeChildFromContainer(
+  container: Element,
+  child: Element
+): void {
+  if (container.nodeType === COMMENT_NODE) {
+    container.parentNode?.removeChild(child);
+  } else {
+    container.removeChild(child);
   }
 }
 export function insertInContainerBefore(
