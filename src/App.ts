@@ -4,7 +4,12 @@ import "./App.css";
 function App() {
   return createElement(
     "div",
-    { className: "App" },
+    {
+      className: "App",
+      onClick: () => {
+        console.log("click");
+      },
+    },
     createElement("h1", null, "hello world!")
   );
 }

@@ -7,7 +7,12 @@ import {
   Snapshot,
   Update,
 } from "./constants";
-import { createInstance, createTextInstance, prepareUpdate } from "./react-dom";
+import {
+  createInstance,
+  createTextInstance,
+  finalizeInitialChildren,
+  prepareUpdate,
+} from "./react-dom";
 
 export function completeWork(current: any, workInProgress: any) {
   const newProps = workInProgress.pendingProps;
@@ -42,7 +47,7 @@ export function completeWork(current: any, workInProgress: any) {
     }
     case HostComponent: {
       //   popHostContext(workInProgress);
-      //   const rootContainerInstance = getRootHostContainer();
+      // const rootContainerInstance = getRootHostContainer();
       const type = workInProgress.type;
 
       if (current !== null && workInProgress.stateNode != null) {
@@ -59,11 +64,6 @@ export function completeWork(current: any, workInProgress: any) {
         // }
       } else {
         if (!newProps) {
-          //   invariant(
-          //     workInProgress.stateNode !== null,
-          //     "We must have new props for new mounts. This error is likely " +
-          //       "caused by a bug in React. Please file an issue."
-          //   );
           // This can happen when we abort work.
           return null;
         }
@@ -88,17 +88,11 @@ export function completeWork(current: any, workInProgress: any) {
         // (eg DOM renderer supports auto-focus for certain elements).
         // Make sure such renderers get scheduled for later work.
         // 特殊情况暂时跳过
-        // if (
-        //   finalizeInitialChildren(
-        //     instance,
-        //     type,
-        //     newProps,
-        //     rootContainerInstance,
-        //     currentHostContext
-        //   )
-        // ) {
-        //   markUpdate(workInProgress);
-        // }
+        if (finalizeInitialChildren(instance, type, newProps, undefined)) {
+          // Tag the fiber with an update effect. This turns a Placement into
+          // a PlacementAndUpdate.
+          workInProgress.flags |= Update;
+        }
 
         // if (workInProgress.ref !== null) {
         //   // If there is a ref on a host node we need to schedule a callback

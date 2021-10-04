@@ -113,6 +113,7 @@ function performUnitOfWork(unitOfWork: any) {
   // next 应该是 unitOfWork.child
   let next = beginWork(current, unitOfWork);
 
+  console.log(unitOfWork.stateNode, "begin work complete");
   unitOfWork.memoizedProps = unitOfWork.pendingProps;
   if (next === null) {
     // If this doesn't spawn new work, complete the current work.
@@ -148,7 +149,7 @@ function completeUnitOfWork(unitOfWork: any) {
     // 正常情况下应该是NoFlags = 0, 按位与后应该是NoFlags
     if ((completedWork.flags & Incomplete) === NoFlags) {
       let next;
-      // 生成dom的， 并挂载到fiber.stateNode上
+      // 生成dom， 并挂载到fiber.stateNode上
       // 对于tag = IndeterminateComponent / FunctionComponent / ClassComponent 之类的 “非宿主环境提供的组件”， 基本就是什么都不做
       next = completeWork(current, completedWork);
 
@@ -428,6 +429,7 @@ function commitRootImpl(root: any) {
  * 2. 异步调度 uesEffect
  */
 function commitBeforeMutationEffects() {
+  console.log("commitBeforeMutationEffects");
   while (nextEffect !== null) {
     const current = nextEffect.alternate;
 
@@ -484,6 +486,10 @@ function commitMutationEffects(root: any) {
     // bitmap value, we remove the secondary effects from the effect tag and
     // switch on that value.
     const primaryFlags = flags & (Placement | Update | Deletion);
+    console.log(
+      "commitMutationEffects with flag: ",
+      nextEffect.child.stateNode
+    );
     switch (primaryFlags) {
       case Placement: {
         commitPlacement(nextEffect);

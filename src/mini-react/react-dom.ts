@@ -49,6 +49,14 @@ function legacyCreateRootFromDOMContainer(container: HTMLElement) {
   const root = createFiberRoot(container, LegacyRoot);
 
   (container as any)["__reactContainer$" + randomKey] = root.current;
+
+  // 事件代理开始
+  // =============================================================================
+  const rootContainerElement =
+    container.nodeType === COMMENT_NODE ? container.parentNode : container;
+  listenToAllSupportedEvents(rootContainerElement);
+  // =============================================================================
+
   return {
     _internalRoot: root,
   };
@@ -184,6 +192,16 @@ export function insertInContainerBefore(
   } else {
     container.insertBefore(child, beforeChild);
   }
+}
+
+export function finalizeInitialChildren(
+  domElement: any,
+  type: string,
+  props: any,
+  rootContainerInstance: any
+): boolean {
+  setInitialProperties(domElement, type, props, rootContainerInstance);
+  return shouldAutoFocusHostComponent(type, props);
 }
 
 function shouldAutoFocusHostComponent(type: string, props: any): boolean {
@@ -350,16 +368,6 @@ export function shouldSetTextContent(type: string, props: any) {
   );
 }
 
-/* export function finalizeInitialChildren(
-  domElement: Element,
-  type: string,
-  props: any,
-  rootContainerInstance: any,
-): boolean {
-  setInitialProperties(domElement, type, props, rootContainerInstance);
-  return shouldAutoFocusHostComponent(type, props);
-} */
-
 export function prepareUpdate(
   domElement: Element,
   type: string,
@@ -374,6 +382,203 @@ export function prepareUpdate(
     newProps
     // rootContainerInstance,
   );
+}
+
+export function setInitialProperties(
+  domElement: Element,
+  tag: string,
+  rawProps: Object,
+  rootContainerElement: Element | Document
+): void {
+  const isCustomComponentTag = isCustomComponent(tag, rawProps);
+
+  // TODO: Make sure that we check isMounted before firing any of these events.
+  let props: Object;
+  switch (tag) {
+    // case 'dialog':
+    //   listenToNonDelegatedEvent('cancel', domElement);
+    //   listenToNonDelegatedEvent('close', domElement);
+    //   props = rawProps;
+    //   break;
+    // case 'iframe':
+    // case 'object':
+    // case 'embed':
+    //   // We listen to this event in case to ensure emulated bubble
+    //   // listeners still fire for the load event.
+    //   listenToNonDelegatedEvent('load', domElement);
+    //   props = rawProps;
+    //   break;
+    // case 'video':
+    // case 'audio':
+    //   // We listen to these events in case to ensure emulated bubble
+    //   // listeners still fire for all the media events.
+    //   for (let i = 0; i < mediaEventTypes.length; i++) {
+    //     listenToNonDelegatedEvent(mediaEventTypes[i], domElement);
+    //   }
+    //   props = rawProps;
+    //   break;
+    // case 'source':
+    //   // We listen to this event in case to ensure emulated bubble
+    //   // listeners still fire for the error event.
+    //   listenToNonDelegatedEvent('error', domElement);
+    //   props = rawProps;
+    //   break;
+    // case 'img':
+    // case 'image':
+    // case 'link':
+    //   // We listen to these events in case to ensure emulated bubble
+    //   // listeners still fire for error and load events.
+    //   listenToNonDelegatedEvent('error', domElement);
+    //   listenToNonDelegatedEvent('load', domElement);
+    //   props = rawProps;
+    //   break;
+    // case 'details':
+    //   // We listen to this event in case to ensure emulated bubble
+    //   // listeners still fire for the toggle event.
+    //   listenToNonDelegatedEvent('toggle', domElement);
+    //   props = rawProps;
+    //   break;
+    // case 'input':
+    //   ReactDOMInputInitWrapperState(domElement, rawProps);
+    //   props = ReactDOMInputGetHostProps(domElement, rawProps);
+    //   // We listen to this event in case to ensure emulated bubble
+    //   // listeners still fire for the invalid event.
+    //   listenToNonDelegatedEvent('invalid', domElement);
+    //   if (!enableEagerRootListeners) {
+    //     // For controlled components we always need to ensure we're listening
+    //     // to onChange. Even if there is no listener.
+    //     ensureListeningTo(rootContainerElement, 'onChange', domElement);
+    //   }
+    //   break;
+    // case 'option':
+    //   ReactDOMOptionValidateProps(domElement, rawProps);
+    //   props = ReactDOMOptionGetHostProps(domElement, rawProps);
+    //   break;
+    // case 'select':
+    //   ReactDOMSelectInitWrapperState(domElement, rawProps);
+    //   props = ReactDOMSelectGetHostProps(domElement, rawProps);
+    //   // We listen to this event in case to ensure emulated bubble
+    //   // listeners still fire for the invalid event.
+    //   listenToNonDelegatedEvent('invalid', domElement);
+    //   if (!enableEagerRootListeners) {
+    //     // For controlled components we always need to ensure we're listening
+    //     // to onChange. Even if there is no listener.
+    //     ensureListeningTo(rootContainerElement, 'onChange', domElement);
+    //   }
+    //   break;
+    // case 'textarea':
+    //   ReactDOMTextareaInitWrapperState(domElement, rawProps);
+    //   props = ReactDOMTextareaGetHostProps(domElement, rawProps);
+    //   // We listen to this event in case to ensure emulated bubble
+    //   // listeners still fire for the invalid event.
+    //   listenToNonDelegatedEvent('invalid', domElement);
+    //   if (!enableEagerRootListeners) {
+    //     // For controlled components we always need to ensure we're listening
+    //     // to onChange. Even if there is no listener.
+    //     ensureListeningTo(rootContainerElement, 'onChange', domElement);
+    //   }
+    //   break;
+    default:
+      props = rawProps;
+  }
+
+  console.log(tag, props);
+  assertValidProps(tag, props);
+
+  setInitialDOMProperties(
+    tag,
+    domElement,
+    rootContainerElement,
+    props,
+    isCustomComponentTag
+  );
+
+  switch (tag) {
+    // case 'input':
+    //   // TODO: Make sure we check if this is still unmounted or do any clean
+    //   // up necessary since we never stop tracking anymore.
+    //   track((domElement: any));
+    //   ReactDOMInputPostMountWrapper(domElement, rawProps, false);
+    //   break;
+    // case 'textarea':
+    //   // TODO: Make sure we check if this is still unmounted or do any clean
+    //   // up necessary since we never stop tracking anymore.
+    //   track((domElement: any));
+    //   ReactDOMTextareaPostMountWrapper(domElement, rawProps);
+    //   break;
+    // case 'option':
+    //   ReactDOMOptionPostMountWrapper(domElement, rawProps);
+    //   break;
+    // case 'select':
+    //   ReactDOMSelectPostMountWrapper(domElement, rawProps);
+    //   break;
+    default:
+      if (typeof (props as any).onClick === "function") {
+        // TODO: This cast may not be sound for SVG, MathML or custom elements.
+        // trapClickOnNonInteractiveElement(domElement);
+        (domElement as any).onclick = noop;
+      }
+      break;
+  }
+}
+function noop() {}
+function setInitialDOMProperties(
+  tag: string,
+  domElement: any,
+  rootContainerElement: Element | Document,
+  nextProps: any,
+  isCustomComponentTag: boolean
+): void {
+  for (const propKey in nextProps) {
+    if (!nextProps.hasOwnProperty(propKey)) {
+      continue;
+    }
+    const nextProp = nextProps[propKey];
+    if (propKey === "style") {
+      // Relies on `updateStylesByID` not mutating `styleUpdates`.
+      setValueForStyles(domElement, nextProp);
+    } else if (propKey === "dangerouslySetInnerHTML") {
+      const nextHtml = nextProp ? nextProp["HTML"] : undefined;
+      if (nextHtml != null) {
+        // setInnerHTML(domElement, nextHtml);
+        domElement.innerHTML = nextHtml;
+      }
+    } else if (propKey === "children") {
+      if (typeof nextProp === "string") {
+        // Avoid setting initial textContent when the text is empty. In IE11 setting
+        // textContent on a <textarea> will cause the placeholder to not
+        // show within the <textarea> until it has been focused and blurred again.
+        // https://github.com/facebook/react/issues/6731#issuecomment-254874553
+        const canSetTextContent = tag !== "textarea" || nextProp !== "";
+        if (canSetTextContent) {
+          setTextContent(domElement, nextProp);
+        }
+      } else if (typeof nextProp === "number") {
+        setTextContent(domElement, "" + nextProp);
+      }
+    } else if (
+      propKey === "suppressContentEditableWarning" ||
+      propKey === "suppressHydrationWarning"
+    ) {
+      // Noop
+    } else if (propKey === "autoFocus") {
+      // We polyfill it separately on the client during commit.
+      // We could have excluded it in the property list instead of
+      // adding a special case here, but then it wouldn't be emitted
+      // on server rendering (but we *do* want to emit it in SSR).
+    } /*  else if (registrationNameDependencies.hasOwnProperty(propKey)) {
+      if (nextProp != null) {
+        
+        // if (!enableEagerRootListeners) {
+        //   ensureListeningTo(rootContainerElement, propKey, domElement);
+        // } else if (propKey === 'onScroll') {
+        //   listenToNonDelegatedEvent('scroll', domElement);
+        // }
+      }
+    } */ else if (nextProp != null) {
+      setValueForProperty(domElement, propKey, nextProp, isCustomComponentTag);
+    }
+  }
 }
 
 // Calculate the diff between the two objects.
@@ -929,5 +1134,66 @@ export const isUnitlessNumber = {
   strokeOpacity: true,
   strokeWidth: true,
 };
+
+const voidElementTags = {
+  menuitem: true,
+  area: true,
+  base: true,
+  br: true,
+  col: true,
+  embed: true,
+  hr: true,
+  img: true,
+  input: true,
+  keygen: true,
+  link: true,
+  meta: true,
+  param: true,
+  source: true,
+  track: true,
+  wbr: true,
+  // NOTE: menuitem's close tag should be omitted, but that causes problems.
+};
+function assertValidProps(tag: string, props: any) {
+  if (!props) {
+    return;
+  }
+  // Note the use of `==` which checks for null or undefined.
+  if ((voidElementTags as any)[tag]) {
+    if (!(props.children == null && props.dangerouslySetInnerHTML == null)) {
+      throw Error(
+        `${tag} is a void element tag and must neither have \`children\` nor use \`dangerouslySetInnerHTML\`.`
+      );
+    }
+  }
+  if (props.dangerouslySetInnerHTML != null) {
+    if (!(props.children == null)) {
+      throw Error(
+        "Can only set one of `children` or `props.dangerouslySetInnerHTML`."
+      );
+    }
+
+    if (
+      !(
+        typeof props.dangerouslySetInnerHTML === "object" &&
+        "HTML" in props.dangerouslySetInnerHTML
+      )
+    ) {
+      throw Error(
+        "`props.dangerouslySetInnerHTML` must be in the form `{__html: ...}`. " +
+          "Please visit https://reactjs.org/link/dangerously-set-inner-html " +
+          "for more information."
+      );
+    }
+  }
+
+  if (!(props.style == null || typeof props.style === "object")) {
+    throw Error(
+      "The `style` prop expects a mapping from style properties to values, " +
+        "not a string. For example, style={{marginRight: spacing + 'em'}} when " +
+        "using JSX."
+    );
+  }
+}
 
 export { render };
