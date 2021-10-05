@@ -3,6 +3,16 @@ import { LegacyRoot } from "./constants";
 import { createFiberRoot } from "./ReactFiber";
 import { updateContainer } from "./ReactFiberReconciler";
 
+import { listenToAllSupportedEvents } from "./events/DOMPluginEventSystem";
+import {
+  BOOLEAN,
+  getPropertyInfo,
+  isAttributeNameSafe,
+  OVERLOADED_BOOLEAN,
+  shouldIgnoreAttribute,
+  shouldRemoveAttribute,
+} from "./DOMProperty";
+
 const randomKey = Math.random().toString(36).slice(2);
 
 export const ELEMENT_NODE = 1;
@@ -51,10 +61,11 @@ function legacyCreateRootFromDOMContainer(container: HTMLElement) {
   (container as any)["__reactContainer$" + randomKey] = root.current;
 
   // 事件代理开始
+  // 我们暂时不看react的事件系统
   // =============================================================================
-  const rootContainerElement =
-    container.nodeType === COMMENT_NODE ? container.parentNode : container;
-  listenToAllSupportedEvents(rootContainerElement);
+  // const rootContainerElement =
+  //   container.nodeType === COMMENT_NODE ? container.parentNode : container;
+  // listenToAllSupportedEvents(rootContainerElement);
   // =============================================================================
 
   return {
@@ -516,7 +527,7 @@ export function setInitialProperties(
       if (typeof (props as any).onClick === "function") {
         // TODO: This cast may not be sound for SVG, MathML or custom elements.
         // trapClickOnNonInteractiveElement(domElement);
-        (domElement as any).onclick = noop;
+        // (domElement as any).onclick = (props as any).onClick;
       }
       break;
   }
@@ -529,6 +540,7 @@ function setInitialDOMProperties(
   nextProps: any,
   isCustomComponentTag: boolean
 ): void {
+  console.log(nextProps);
   for (const propKey in nextProps) {
     if (!nextProps.hasOwnProperty(propKey)) {
       continue;
@@ -762,124 +774,6 @@ export function diffProperties(
   return updatePayload;
 }
 
-// A reserved attribute.
-// It is handled by React separately and shouldn't be written to the DOM.
-export const RESERVED = 0;
-
-// A simple string attribute.
-// Attributes that aren't in the filter are presumed to have this type.
-export const STRING = 1;
-
-// A string attribute that accepts booleans in React. In HTML, these are called
-// "enumerated" attributes with "true" and "false" as possible values.
-// When true, it should be set to a "true" string.
-// When false, it should be set to a "false" string.
-export const BOOLEANISH_STRING = 2;
-
-// A real boolean attribute.
-// When true, it should be present (set either to an empty string or its name).
-// When false, it should be omitted.
-export const BOOLEAN = 3;
-
-// An attribute that can be used as a flag as well as with a value.
-// When true, it should be present (set either to an empty string or its name).
-// When false, it should be omitted.
-// For any other value, should be present with that value.
-export const OVERLOADED_BOOLEAN = 4;
-
-// An attribute that must be numeric or parse as a numeric.
-// When falsy, it should be removed.
-export const NUMERIC = 5;
-
-// An attribute that must be positive numeric or parse as a positive numeric.
-// When falsy, it should be removed.
-export const POSITIVE_NUMERIC = 6;
-export function shouldIgnoreAttribute(
-  name: string,
-  propertyInfo: any,
-  isCustomComponentTag: boolean
-): boolean {
-  if (propertyInfo !== null) {
-    return propertyInfo.type === RESERVED;
-  }
-  if (isCustomComponentTag) {
-    return false;
-  }
-  if (
-    name.length > 2 &&
-    (name[0] === "o" || name[0] === "O") &&
-    (name[1] === "n" || name[1] === "N")
-  ) {
-    return true;
-  }
-  return false;
-}
-export function shouldRemoveAttributeWithWarning(
-  name: string,
-  value: any,
-  propertyInfo: any,
-  isCustomComponentTag: boolean
-): boolean {
-  if (propertyInfo !== null && propertyInfo.type === RESERVED) {
-    return false;
-  }
-  switch (typeof value) {
-    case "function":
-    // $FlowIssue symbol is perfectly valid here
-    case "symbol": // eslint-disable-line
-      return true;
-    case "boolean": {
-      if (isCustomComponentTag) {
-        return false;
-      }
-      if (propertyInfo !== null) {
-        return !propertyInfo.acceptsBooleans;
-      } else {
-        const prefix = name.toLowerCase().slice(0, 5);
-        return prefix !== "data-" && prefix !== "aria-";
-      }
-    }
-    default:
-      return false;
-  }
-}
-export function shouldRemoveAttribute(
-  name: string,
-  value: any,
-  propertyInfo: any,
-  isCustomComponentTag: boolean
-): boolean {
-  if (value === null || typeof value === "undefined") {
-    return true;
-  }
-  if (
-    shouldRemoveAttributeWithWarning(
-      name,
-      value,
-      propertyInfo,
-      isCustomComponentTag
-    )
-  ) {
-    return true;
-  }
-  if (isCustomComponentTag) {
-    return false;
-  }
-  if (propertyInfo !== null) {
-    switch (propertyInfo.type) {
-      case BOOLEAN:
-        return !value;
-      case OVERLOADED_BOOLEAN:
-        return value === false;
-      case NUMERIC:
-        return isNaN(value);
-      case POSITIVE_NUMERIC:
-        return isNaN(value) || value < 1;
-    }
-  }
-  return false;
-}
-
 /**
  * Sets the value for a property on a node.
  *
@@ -893,7 +787,8 @@ export function setValueForProperty(
   value: any,
   isCustomComponentTag: boolean
 ) {
-  const propertyInfo = null;
+  console.log("==========setValueForProperty", name, value);
+  const propertyInfo = getPropertyInfo(name);
   // return properties.hasOwnProperty(name) ? properties[name] : null;
   if (shouldIgnoreAttribute(name, propertyInfo, isCustomComponentTag)) {
     return;
@@ -901,14 +796,24 @@ export function setValueForProperty(
   if (shouldRemoveAttribute(name, value, propertyInfo, isCustomComponentTag)) {
     value = null;
   }
+  console.log("setValueForProperty=================", name, propertyInfo);
   // If the prop isn't in the special list, treat it as a simple attribute.
   if (isCustomComponentTag || propertyInfo === null) {
     if (isAttributeNameSafe(name)) {
       const attributeName = name;
-      if (value === null) {
-        node.removeAttribute(attributeName);
+      if (name === "onClick") {
+        if (value === null) {
+          // node.removeEventListener(attributeName);
+        } else {
+          node.addEventListener("click", value);
+        }
       } else {
-        node.setAttribute(attributeName, value);
+        if (value === null) {
+          node.removeAttribute(attributeName);
+        } else {
+          console.log("setAttribute", attributeName);
+          node.setAttribute(attributeName, value);
+        }
       }
     }
     return;
@@ -951,43 +856,6 @@ export function setValueForProperty(
       node.setAttribute(attributeName, attributeValue);
     }
   }
-}
-/* eslint-disable max-len */
-export const ATTRIBUTE_NAME_START_CHAR =
-  ":A-Z_a-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD";
-/* eslint-enable max-len */
-export const ATTRIBUTE_NAME_CHAR =
-  ATTRIBUTE_NAME_START_CHAR + "\\-.0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040";
-const VALID_ATTRIBUTE_NAME_REGEX = new RegExp(
-  "^[" + ATTRIBUTE_NAME_START_CHAR + "][" + ATTRIBUTE_NAME_CHAR + "]*$"
-);
-
-const illegalAttributeNameCache: any = {};
-const validatedAttributeNameCache: any = {};
-function isAttributeNameSafe(attributeName: string): boolean {
-  if (
-    Object.prototype.hasOwnProperty.call(
-      validatedAttributeNameCache,
-      attributeName
-    )
-  ) {
-    return true;
-  }
-  if (
-    Object.prototype.hasOwnProperty.call(
-      illegalAttributeNameCache,
-      attributeName
-    )
-  ) {
-    return false;
-  }
-  if (VALID_ATTRIBUTE_NAME_REGEX.test(attributeName)) {
-    validatedAttributeNameCache[attributeName] = true;
-    return true;
-  }
-  illegalAttributeNameCache[attributeName] = true;
-
-  return false;
 }
 
 function isCustomComponent(tagName: string, props: Object) {
