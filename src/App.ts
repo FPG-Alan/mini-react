@@ -7,7 +7,7 @@ function App() {
     {
       className: "App",
       onClick: () => {
-        console.log("click");
+        console.log("hello darkness my old friend");
       },
     },
     createElement("h1", null, "hello world!")

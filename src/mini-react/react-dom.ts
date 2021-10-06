@@ -3,7 +3,6 @@ import { LegacyRoot } from "./constants";
 import { createFiberRoot } from "./ReactFiber";
 import { updateContainer } from "./ReactFiberReconciler";
 
-import { listenToAllSupportedEvents } from "./events/DOMPluginEventSystem";
 import {
   BOOLEAN,
   getPropertyInfo,
@@ -12,6 +11,7 @@ import {
   shouldIgnoreAttribute,
   shouldRemoveAttribute,
 } from "./DOMProperty";
+import { ensureListeningTo } from "./events/miniEvent";
 
 const randomKey = Math.random().toString(36).slice(2);
 
@@ -22,6 +22,8 @@ export const DOCUMENT_NODE = 9;
 export const DOCUMENT_FRAGMENT_NODE = 11;
 
 const internalPropsKey = "__reactProps$" + randomKey;
+export const internalInstanceKey = "__reactFiber$" + randomKey;
+export const internalContainerInstanceKey = "__reactContainer$" + randomKey;
 
 function render(
   children: ReactElement,
@@ -58,7 +60,7 @@ function legacyCreateRootFromDOMContainer(container: HTMLElement) {
 
   const root = createFiberRoot(container, LegacyRoot);
 
-  (container as any)["__reactContainer$" + randomKey] = root.current;
+  (container as any)[internalContainerInstanceKey] = root.current;
 
   // 事件代理开始
   // 我们暂时不看react的事件系统
@@ -66,6 +68,7 @@ function legacyCreateRootFromDOMContainer(container: HTMLElement) {
   // const rootContainerElement =
   //   container.nodeType === COMMENT_NODE ? container.parentNode : container;
   // listenToAllSupportedEvents(rootContainerElement);
+
   // =============================================================================
 
   return {
@@ -76,7 +79,7 @@ function legacyCreateRootFromDOMContainer(container: HTMLElement) {
 export function createTextInstance(text: string, internalInstanceHandle: any) {
   const textNode = document.createTextNode(text);
   // precacheFiberNode(internalInstanceHandle, textNode);
-  internalInstanceHandle["__reactFiber$" + randomKey] = textNode;
+  (textNode as any)[internalInstanceKey] = internalInstanceHandle;
   return textNode;
 }
 
@@ -86,7 +89,7 @@ export function createInstance(
   internalInstanceHandle: any
 ) {
   const domElement = createElement(type, props);
-  internalInstanceHandle["__reactFiber$" + randomKey] = domElement;
+  (domElement as any)["__reactFiber$" + randomKey] = internalInstanceHandle;
   // updateFiberProps(domElement, props);
   (domElement as any)[`__reactProps$${randomKey}`] = props;
   return domElement;
@@ -578,16 +581,16 @@ function setInitialDOMProperties(
       // We could have excluded it in the property list instead of
       // adding a special case here, but then it wouldn't be emitted
       // on server rendering (but we *do* want to emit it in SSR).
-    } /*  else if (registrationNameDependencies.hasOwnProperty(propKey)) {
+    } else if (propKey[0] === "o" && propKey[1] === "n") {
       if (nextProp != null) {
-        
+        ensureListeningTo(rootContainerElement, propKey, domElement);
         // if (!enableEagerRootListeners) {
         //   ensureListeningTo(rootContainerElement, propKey, domElement);
         // } else if (propKey === 'onScroll') {
         //   listenToNonDelegatedEvent('scroll', domElement);
         // }
       }
-    } */ else if (nextProp != null) {
+    } else if (nextProp != null) {
       setValueForProperty(domElement, propKey, nextProp, isCustomComponentTag);
     }
   }
@@ -747,14 +750,15 @@ export function diffProperties(
       }
     } else if (propKey === "suppressContentEditableWarning") {
       // Noop
-    } /* else if (registrationNameDependencies.hasOwnProperty(propKey)) {
+    } else if (propKey[0] === "o" && propKey[1] === "n") {
       if (nextProp != null) {
-        // We eagerly listen to this even though we haven't committed yet.
-        if (!enableEagerRootListeners) {
-          ensureListeningTo(rootContainerElement, propKey, domElement);
-        } else if (propKey === "onScroll") {
-          listenToNonDelegatedEvent("scroll", domElement);
-        }
+        // ensureListeningTo(rootContainerElement, propKey, domElement);
+        // // We eagerly listen to this even though we haven't committed yet.
+        // if (!enableEagerRootListeners) {
+        //   ensureListeningTo(rootContainerElement, propKey, domElement);
+        // } else if (propKey === "onScroll") {
+        //   listenToNonDelegatedEvent("scroll", domElement);
+        // }
       }
       if (!updatePayload && lastProp !== nextProp) {
         // This is a special case. If any listener updates we need to ensure
@@ -762,7 +766,7 @@ export function diffProperties(
         // to update this element.
         updatePayload = [];
       }
-    } */ else {
+    } else {
       // For any other property we always add it to the queue and then we
       // filter it out using the allowed property list during the commit.
       (updatePayload = updatePayload || []).push(propKey, nextProp);
@@ -801,19 +805,11 @@ export function setValueForProperty(
   if (isCustomComponentTag || propertyInfo === null) {
     if (isAttributeNameSafe(name)) {
       const attributeName = name;
-      if (name === "onClick") {
-        if (value === null) {
-          // node.removeEventListener(attributeName);
-        } else {
-          node.addEventListener("click", value);
-        }
+      if (value === null) {
+        node.removeAttribute(attributeName);
       } else {
-        if (value === null) {
-          node.removeAttribute(attributeName);
-        } else {
-          console.log("setAttribute", attributeName);
-          node.setAttribute(attributeName, value);
-        }
+        console.log("setAttribute", attributeName);
+        node.setAttribute(attributeName, value);
       }
     }
     return;

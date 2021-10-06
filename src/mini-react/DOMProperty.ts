@@ -90,13 +90,13 @@ export function shouldIgnoreAttribute(
   }
 
   // 阻止原生事件来的
-  // if (
-  //   name.length > 2 &&
-  //   (name[0] === "o" || name[0] === "O") &&
-  //   (name[1] === "n" || name[1] === "N")
-  // ) {
-  //   return true;
-  // }
+  if (
+    name.length > 2 &&
+    (name[0] === "o" || name[0] === "O") &&
+    (name[1] === "n" || name[1] === "N")
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -110,7 +110,7 @@ export function shouldRemoveAttributeWithWarning(
     return false;
   }
   switch (typeof value) {
-    // case "function":
+    case "function":
     // $FlowIssue symbol is perfectly valid here
     case "symbol": // eslint-disable-line
       return true;
