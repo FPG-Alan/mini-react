@@ -2,6 +2,7 @@ import {
   Callback,
   ContentReset,
   Deletion,
+  HostRoot,
   Incomplete,
   NoFlags,
   Passive,
@@ -63,6 +64,52 @@ let shouldFireAfterActiveInstanceBlur = false;
 
 // Fiber | null
 let nextEffect: any = null;
+
+export function scheduleUpdateOnFiber(fiber: any) {
+  const root = (fiber.tag === HostRoot && fiber.stateNode) || null;
+
+  if (root === null) {
+    return null;
+  }
+
+  // TODO: requestUpdateLanePriority also reads the priority. Pass the
+  // priority as an argument to that function and this one.
+  // const priorityLevel = getCurrentPriorityLevel();
+
+  if (
+    // Check if we're inside unbatchedUpdates
+    (executionContext & LegacyUnbatchedContext) !== NoContext &&
+    // Check if we're not already rendering
+    (executionContext & (RenderContext | CommitContext)) === NoContext
+  ) {
+    // Register pending interactions on the root to avoid losing traced interaction data.
+    schedulePendingInteractions(root);
+
+    // This is a legacy edge case. The initial mount of a ReactDOM.render-ed
+    // root inside of batchedUpdates should be synchronous, but layout updates
+    // should be deferred until the end of the batch.
+    performSyncWorkOnRoot(root);
+  } else {
+    ensureRootIsScheduled(root);
+    schedulePendingInteractions(root);
+    if (executionContext === NoContext) {
+      // Flush the synchronous work now, unless we're already working or inside
+      // a batch. This is intentionally inside scheduleUpdateOnFiber instead of
+      // scheduleCallbackForFiber to preserve the ability to schedule a callback
+      // without immediately flushing it. We only do this for user-initiated
+      // updates, to preserve historical behavior of legacy mode.
+      // resetRenderTimer();
+      // flushSyncCallbackQueue();
+    }
+  }
+
+  // We use this when assigning a lane for a transition inside
+  // `requestUpdateLane`. We assume it's the same as the root being updated,
+  // since in the common case of a single root app it probably is. If it's not
+  // the same root, then it's not a huge deal, we just might batch more stuff
+  // together more than necessary.
+  // mostRecentlyUpdatedRoot = root;
+}
 
 export function performSyncWorkOnRoot(fiberRoot: any) {
   renderRootSync(fiberRoot);
