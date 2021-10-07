@@ -10,7 +10,7 @@ import {
   PlacementAndUpdate,
   Snapshot,
   Update,
-} from "./constants";
+} from "../constants";
 import { createWorkInProgress } from "./ReactFiber";
 import { beginWork } from "./ReactFiberBeginWork";
 import {

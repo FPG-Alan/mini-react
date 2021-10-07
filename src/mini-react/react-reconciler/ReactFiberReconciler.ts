@@ -1,4 +1,4 @@
-import { UpdateState } from "./constants";
+import { UpdateState } from "../constants";
 import { performSyncWorkOnRoot } from "./ReactFiberWorkLoop";
 import { enqueueUpdate } from "./ReactUpdateQueue";
 

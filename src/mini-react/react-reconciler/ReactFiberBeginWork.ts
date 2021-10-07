@@ -7,8 +7,8 @@ import {
   HostText,
   IndeterminateComponent,
   PerformedWork,
-} from "./constants";
-import { shouldSetTextContent } from "./react-dom";
+} from "../constants";
+import { shouldSetTextContent } from "../react-dom";
 import { reconcileChildFibers } from "./ReactChildFibers";
 import { renderWithHooks } from "./ReactFiberHooks";
 import { cloneUpdateQueue, processUpdateQueue } from "./ReactUpdateQueue";

@@ -1,9 +1,6 @@
-import { HostRoot } from "../constants";
-import {
-  internalContainerInstanceKey,
-  internalInstanceKey,
-} from "../react-dom";
-import { getNearestMountedFiber } from "../ReactFiberTreeReflection";
+import { HostRoot } from "../../constants";
+import { internalContainerInstanceKey, internalInstanceKey } from "../index";
+import { getNearestMountedFiber } from "../../react-reconciler/ReactFiberTreeReflection";
 
 const listenEvents = new Set();
 /**

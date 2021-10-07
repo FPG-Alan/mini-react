@@ -6,13 +6,13 @@ import {
   IndeterminateComponent,
   Snapshot,
   Update,
-} from "./constants";
+} from "../constants";
 import {
   createInstance,
   createTextInstance,
   finalizeInitialChildren,
   prepareUpdate,
-} from "./react-dom";
+} from "../react-dom";
 
 export function completeWork(current: any, workInProgress: any) {
   const newProps = workInProgress.pendingProps;

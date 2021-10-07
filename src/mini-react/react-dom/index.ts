@@ -1,7 +1,7 @@
 import { ReactElement } from "react";
-import { LegacyRoot } from "./constants";
-import { createFiberRoot } from "./ReactFiber";
-import { updateContainer } from "./ReactFiberReconciler";
+import { LegacyRoot } from "../constants";
+import { createFiberRoot } from "../react-reconciler/ReactFiber";
+import { updateContainer } from "../react-reconciler/ReactFiberReconciler";
 
 import {
   BOOLEAN,

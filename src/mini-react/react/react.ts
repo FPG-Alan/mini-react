@@ -1,4 +1,4 @@
-import { REACT_ELEMENT_TYPE } from "./constants";
+import { REACT_ELEMENT_TYPE } from "../constants";
 
 function ReactElement(
   type: string,

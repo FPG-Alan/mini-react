@@ -7,7 +7,7 @@ import {
   NoFlags,
   NoMode,
   UpdateState,
-} from "./constants";
+} from "../constants";
 import { performSyncWorkOnRoot } from "./ReactFiberWorkLoop";
 
 export function createFiberRoot(containerInfo: HTMLElement, tag: number) {

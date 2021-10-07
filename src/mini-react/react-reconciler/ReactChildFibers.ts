@@ -1,4 +1,9 @@
-import { Deletion, HostText, Placement, REACT_ELEMENT_TYPE } from "./constants";
+import {
+  Deletion,
+  HostText,
+  Placement,
+  REACT_ELEMENT_TYPE,
+} from "../constants";
 import {
   createFiberFromElement,
   createFiberFromText,

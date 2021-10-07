@@ -8,7 +8,7 @@ import {
   Placement,
   Snapshot,
   Update,
-} from "./constants";
+} from "../constants";
 import {
   appendChild,
   appendChildToContainer,
@@ -21,7 +21,7 @@ import {
   removeChild,
   removeChildFromContainer,
   resetTextContent,
-} from "./react-dom";
+} from "../react-dom";
 import { HasEffect, Layout, Passive } from "./ReactFiberHooks";
 import {
   enqueuePendingPassiveHookEffectMount,

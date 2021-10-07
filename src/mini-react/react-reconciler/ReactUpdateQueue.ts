@@ -6,7 +6,7 @@ import {
   ReplaceState,
   ShouldCapture,
   UpdateState,
-} from "./constants";
+} from "../constants";
 
 export function cloneUpdateQueue(current: any, workInProgress: any) {
   // Clone the update queue from current. Unless it's already a clone.

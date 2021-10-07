@@ -1,4 +1,4 @@
-import { HostRoot, Hydrating, NoFlags, Placement } from "./constants";
+import { HostRoot, Hydrating, NoFlags, Placement } from "../constants";
 
 export function getNearestMountedFiber(fiber: any): any {
   let node = fiber;

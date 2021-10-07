@@ -1,4 +1,4 @@
-import { createElement } from "./mini-react/react";
+import { createElement } from "./mini-react/react/react";
 import "./App.css";
 
 function App() {

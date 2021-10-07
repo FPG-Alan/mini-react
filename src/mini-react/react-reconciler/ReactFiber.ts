@@ -10,7 +10,7 @@ import {
   IndeterminateComponent,
   NoFlags,
   NoMode,
-} from "./constants";
+} from "../constants";
 
 export function createFiberRoot(containerInfo: HTMLElement, tag: number) {
   const root: any = {
