@@ -1,4 +1,5 @@
 import { ReactCurrentDispatcher } from "../react/ReactHooks";
+import { markWorkInProgressReceivedUpdate } from "./ReactFiberBeginWork";
 import { scheduleUpdateOnFiber } from "./ReactFiberWorkLoop";
 
 export const NoFlags = /*  */ 0b000;
@@ -21,7 +22,7 @@ let currentlyRenderingFiber: any = null;
 
 // Hooks 用链表结构， 存贮在fiber's memoizedState字段
 // Hook | null
-let currentHook = null;
+let currentHook: any = null;
 // Hook | null
 let workInProgressHook: any = null;
 
@@ -72,33 +73,29 @@ export function renderWithHooks(
   return children;
 }
 
-
-
-
 export type ReactPriorityLevel = 99 | 98 | 97 | 96 | 95 | 90;
 
 type Update<S, A> = {
-  action: A,
-  eagerReducer: ((state: S, action:A) => S) | null,
-  eagerState: S | null,
-  next: Update<S, A> | null,
-  priority?: ReactPriorityLevel,
+  action: A;
+  eagerReducer: ((state: S, action: A) => S) | null;
+  eagerState: S | null;
+  next: Update<S, A> | null;
+  priority?: ReactPriorityLevel;
 };
 
 type UpdateQueue<S, A> = {
-  pending: Update<S, A> | null,
-  dispatch: ((action: A) => any) | null,
-  lastRenderedReducer: ((state: S, action: A) => S) | null,
-  lastRenderedState: S | null,
+  pending: Update<S, A> | null;
+  dispatch: ((action: A) => any) | null;
+  lastRenderedReducer: ((state: S, action: A) => S) | null;
+  lastRenderedState: S | null;
 };
 
-
 export type Hook = {
-  memoizedState: any,
-  baseState: any,
-  baseQueue: Update<any, any> | null,
-  queue: UpdateQueue<any, any> | null,
-  next: Hook | null,
+  memoizedState: any;
+  baseState: any;
+  baseQueue: Update<any, any> | null;
+  queue: UpdateQueue<any, any> | null;
+  next: Hook | null;
 };
 
 function mountWorkInProgressHook(): Hook {
@@ -122,18 +119,84 @@ function mountWorkInProgressHook(): Hook {
   return workInProgressHook;
 }
 
+function updateWorkInProgressHook(): Hook {
+  // This function is used both for updates and for re-renders triggered by a
+  // render phase update. It assumes there is either a current hook we can
+  // clone, or a work-in-progress hook from a previous render pass that we can
+  // use as a base. When we reach the end of the base list, we must switch to
+  // the dispatcher used for mounts.
+  let nextCurrentHook: null | Hook;
+  if (currentHook === null) {
+    const current = currentlyRenderingFiber.alternate;
+    if (current !== null) {
+      nextCurrentHook = current.memoizedState;
+    } else {
+      nextCurrentHook = null;
+    }
+  } else {
+    nextCurrentHook = currentHook.next;
+  }
 
+  let nextWorkInProgressHook: null | Hook;
+  if (workInProgressHook === null) {
+    nextWorkInProgressHook = currentlyRenderingFiber.memoizedState;
+  } else {
+    nextWorkInProgressHook = workInProgressHook.next;
+  }
 
+  if (nextWorkInProgressHook !== null) {
+    // There's already a work-in-progress. Reuse it.
+    workInProgressHook = nextWorkInProgressHook;
+    nextWorkInProgressHook = workInProgressHook.next;
 
+    currentHook = nextCurrentHook;
+  } else {
+    // Clone from the current hook.
+
+    if (!(nextCurrentHook !== null)) {
+      throw new Error("Rendered more hooks than during the previous render.");
+    }
+
+    currentHook = nextCurrentHook;
+
+    const newHook: Hook = {
+      memoizedState: currentHook.memoizedState,
+
+      baseState: currentHook.baseState,
+      baseQueue: currentHook.baseQueue,
+      queue: currentHook.queue,
+
+      next: null,
+    };
+
+    if (workInProgressHook === null) {
+      // This is the first hook in the list.
+      currentlyRenderingFiber.memoizedState = workInProgressHook = newHook;
+    } else {
+      // Append to the end of the list.
+      workInProgressHook = workInProgressHook.next = newHook;
+    }
+  }
+  return workInProgressHook;
+}
 
 type BasicStateAction<S> = (state: S) => S | S;
 type Dispatch<A> = (state: A) => void;
 
+// useState 实际上就是一个特殊的useReduce
+// 特殊在， 他默认有一个reduce函数， 这个函数的action可以是直接值， 或者函数
+// 下面两个hook等价
+// const [count, setCount] = useState(0)
+// const [count, setCount] = useReduce((state, action) => (typeof action === 'function' ? action(state) : action), 0)
+function basicStateReducer<S>(state: S, action: BasicStateAction<S>): S {
+  return typeof action === "function" ? action(state) : action;
+}
+
 function mountState<S>(
-  initialState: (() => S) | S,
+  initialState: (() => S) | S
 ): [S, Dispatch<BasicStateAction<S>>] {
   const hook = mountWorkInProgressHook();
-  if (typeof initialState === 'function') {
+  if (typeof initialState === "function") {
     initialState = (initialState as Function)();
   }
   hook.memoizedState = hook.baseState = initialState;
@@ -141,39 +204,128 @@ function mountState<S>(
     pending: null,
     dispatch: null,
     lastRenderedReducer: basicStateReducer,
-    lastRenderedState: (initialState),
+    lastRenderedState: initialState,
   });
-  const dispatch: Dispatch<
-    BasicStateAction<S>,
-  > = (queue.dispatch = dispatchAction.bind(
-    null,
-    currentlyRenderingFiber,
-    queue,
-  ));
+  const dispatch: Dispatch<BasicStateAction<S>> = ((queue as any).dispatch =
+    dispatchAction.bind(null, currentlyRenderingFiber, queue));
   return [hook.memoizedState, dispatch];
 }
 
 function updateState<S>(
-  initialState: (() => S) | S,
+  initialState: (() => S) | S
 ): [S, Dispatch<BasicStateAction<S>>] {
-  return updateReducer(basicStateReducer, (initialState: any));
+  return updateReducer(basicStateReducer, initialState);
+}
+
+function updateReducer<S, I, A>(
+  reducer: (state: S, action: A) => S,
+  initialArg: I,
+  init?: (initialState: I) => S
+): [S, Dispatch<A>] {
+  const hook = updateWorkInProgressHook();
+  const queue = hook.queue;
+
+  if (!(queue !== null)) {
+    throw new Error(
+      "Should have a queue. This is likely a bug in React. Please file an issue."
+    );
+  }
+
+  queue.lastRenderedReducer = reducer;
+
+  const current: Hook = currentHook;
+
+  // The last rebase update that is NOT part of the base state.
+  let baseQueue = current.baseQueue;
+
+  // The last pending update that hasn't been processed yet.
+  const pendingQueue = queue.pending;
+  if (pendingQueue !== null) {
+    // We have new updates that haven't been processed yet.
+    // We'll add them to the base queue.
+    if (baseQueue !== null) {
+      // Merge the pending queue and the base queue.
+      const baseFirst = baseQueue.next;
+      const pendingFirst = pendingQueue.next;
+      baseQueue.next = pendingFirst;
+      pendingQueue.next = baseFirst;
+    }
+    current.baseQueue = baseQueue = pendingQueue;
+    queue.pending = null;
+  }
+
+  if (baseQueue !== null) {
+    // We have a queue to process.
+    const first = baseQueue.next;
+    let newState = current.baseState;
+
+    let newBaseState = null;
+    let newBaseQueueFirst = null;
+    let newBaseQueueLast = null;
+    let update = first;
+    do {
+      // const updateLane = update.lane;
+      // This update does have sufficient priority.
+
+      if (newBaseQueueLast !== null) {
+        const clone: Update<S, A> = {
+          // This update is going to be committed so we never want uncommit
+          // it. Using NoLane works because 0 is a subset of all bitmasks, so
+          // this will never be skipped by the check above.
+          // lane: NoLane,
+          action: update!.action,
+          eagerReducer: update!.eagerReducer,
+          eagerState: update!.eagerState,
+          next: null,
+        };
+        newBaseQueueLast = (newBaseQueueLast as any).next = clone;
+      }
+
+      // Process this update.
+      if (update!.eagerReducer === reducer) {
+        // If this update was processed eagerly, and its reducer matches the
+        // current reducer, we can use the eagerly computed state.
+        newState = update!.eagerState;
+      } else {
+        const action = update!.action;
+        newState = reducer(newState, action);
+      }
+      update = update!.next;
+    } while (update !== null && update !== first);
+
+    if (newBaseQueueLast === null) {
+      newBaseState = newState;
+    } else {
+      (newBaseQueueLast as any).next = newBaseQueueFirst;
+    }
+
+    // Mark that the fiber performed work, but only if the new state is
+    // different from the current state.
+    if (!is(newState, hook.memoizedState)) {
+      markWorkInProgressReceivedUpdate();
+    }
+
+    hook.memoizedState = newState;
+    hook.baseState = newBaseState;
+    hook.baseQueue = newBaseQueueLast;
+
+    queue.lastRenderedState = newState;
+  }
+
+  const dispatch: any = queue.dispatch;
+  return [hook.memoizedState, dispatch];
 }
 
 /**
  * inlined Object.is polyfill to avoid requiring consumers ship their own
  * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/is
  */
- function is(x: any, y: any) {
+function is(x: any, y: any) {
   return (
     (x === y && (x !== 0 || 1 / x === 1 / y)) || (x !== x && y !== y) // eslint-disable-line no-self-compare
   );
 }
-function dispatchAction<S, A>(
-  fiber: any,
-  queue: UpdateQueue<S, A>,
-  action: A,
-) {
-
+function dispatchAction<S, A>(fiber: any, queue: UpdateQueue<S, A>, action: A) {
   // const eventTime = requestEventTime();
   // const lane = requestUpdateLane(fiber);
 
@@ -204,11 +356,12 @@ function dispatchAction<S, A>(
     // This is a render phase update. Stash it in a lazily-created map of
     // queue -> linked list of updates. After this render pass, we'll restart
     // and apply the stashed updates on top of the work-in-progress hook.
-    didScheduleRenderPhaseUpdateDuringThisPass = didScheduleRenderPhaseUpdate = true;
+    didScheduleRenderPhaseUpdateDuringThisPass = didScheduleRenderPhaseUpdate =
+      true;
   } else {
     if (
       // fiber.lanes === NoLanes &&
-      (alternate === null /* || alternate.lanes === NoLanes */)
+      alternate === null /* || alternate.lanes === NoLanes */
     ) {
       // The queue is currently empty, which means we can eagerly compute the
       // next state before entering the render phase. If the new state is the
@@ -217,7 +370,7 @@ function dispatchAction<S, A>(
       if (lastRenderedReducer !== null) {
         let prevDispatcher;
         try {
-          const currentState: S = (queue.lastRenderedState as any);
+          const currentState: S = queue.lastRenderedState as any;
           const eagerState = lastRenderedReducer(currentState, action);
           // Stash the eagerly computed state, and the reducer used to compute
           // it, on the update object. If the reducer hasn't changed by the
@@ -241,7 +394,6 @@ function dispatchAction<S, A>(
     scheduleUpdateOnFiber(fiber);
   }
 }
-
 
 const HooksDispatcherOnMount = {
   // readContext,

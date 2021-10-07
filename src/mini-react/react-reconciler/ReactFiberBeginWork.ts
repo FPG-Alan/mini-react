@@ -66,7 +66,9 @@ export function beginWork(current: any, workInProgress: any) {
       return null;
   }
 }
-
+export function markWorkInProgressReceivedUpdate() {
+  didReceiveUpdate = true;
+}
 /**
  * 1. 执行函数组件函数体， 获取value(children)
  * 2. 确认 wip.tag 为 FunctionComponent
