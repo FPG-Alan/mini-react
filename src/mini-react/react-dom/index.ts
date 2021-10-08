@@ -606,7 +606,7 @@ export function diffProperties(
 ) {
   let updatePayload: null | Array<any> = null;
 
-  let lastProps = nextRawProps;
+  let lastProps = lastRawProps;
   let nextProps = nextRawProps;
   // switch (tag) {
   //   case 'input':
@@ -644,10 +644,12 @@ export function diffProperties(
 
   // assertValidProps(tag, nextProps);
 
+  console.log("mmmmmmmmmmmmmmmmmmmmm");
   let propKey;
   let styleName;
   let styleUpdates: any = null;
   for (propKey in lastProps) {
+    console.log(propKey);
     if (
       nextProps.hasOwnProperty(propKey) ||
       !lastProps.hasOwnProperty(propKey) ||
@@ -669,6 +671,7 @@ export function diffProperties(
       propKey === "dangerouslySetInnerHTML" ||
       propKey === "children"
     ) {
+      console.log("Noop. This is handled by the clear text mechanism.");
       // Noop. This is handled by the clear text mechanism.
     } else if (propKey === "suppressContentEditableWarning") {
       // Noop

@@ -301,7 +301,7 @@ function updateReducer<S, I, A>(
 
     // Mark that the fiber performed work, but only if the new state is
     // different from the current state.
-    if (!is(newState, hook.memoizedState)) {
+    if (!Object.is(newState, hook.memoizedState)) {
       markWorkInProgressReceivedUpdate();
     }
 
@@ -316,15 +316,6 @@ function updateReducer<S, I, A>(
   return [hook.memoizedState, dispatch];
 }
 
-/**
- * inlined Object.is polyfill to avoid requiring consumers ship their own
- * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/is
- */
-function is(x: any, y: any) {
-  return (
-    (x === y && (x !== 0 || 1 / x === 1 / y)) || (x !== x && y !== y) // eslint-disable-line no-self-compare
-  );
-}
 function dispatchAction<S, A>(fiber: any, queue: UpdateQueue<S, A>, action: A) {
   // const eventTime = requestEventTime();
   // const lane = requestUpdateLane(fiber);
@@ -343,6 +334,11 @@ function dispatchAction<S, A>(fiber: any, queue: UpdateQueue<S, A>, action: A) {
     // This is the first update. Create a circular list.
     update.next = update;
   } else {
+    // 可能同时会有多次 **同一个state的** dispatch 触发
+    // 比如 onClick 回调内:
+    // dispatch(count=>count+1);
+    // dispatch(other=>other+1);
+    // ...
     update.next = pending.next;
     pending.next = update;
   }
@@ -353,6 +349,13 @@ function dispatchAction<S, A>(fiber: any, queue: UpdateQueue<S, A>, action: A) {
     fiber === currentlyRenderingFiber ||
     (alternate !== null && alternate === currentlyRenderingFiber)
   ) {
+    // 在render中发生的一次dispatch，
+    // 换言之， 此时， 这个函数组件正在执行。
+    // 这种情况一般是调用了useState获得了dispatch后， 立刻执行了这个dispatch
+    // const [state, dispatch] = useState(0);
+    // dispatch(1);
+
+    // 此时不需要后续操作了
     // This is a render phase update. Stash it in a lazily-created map of
     // queue -> linked list of updates. After this render pass, we'll restart
     // and apply the stashed updates on top of the work-in-progress hook.
@@ -363,14 +366,18 @@ function dispatchAction<S, A>(fiber: any, queue: UpdateQueue<S, A>, action: A) {
       // fiber.lanes === NoLanes &&
       alternate === null /* || alternate.lanes === NoLanes */
     ) {
+      // 这是一个性能优化， 如果 alternate === null ， 也就是说这是 mount 后第一个 update (?)
+      // 提前计算 next state， 并和 prev state 对比, 如果相同的话就可以提前退出， 不用进入 render 阶段了
       // The queue is currently empty, which means we can eagerly compute the
       // next state before entering the render phase. If the new state is the
       // same as the current state, we may be able to bail out entirely.
       const lastRenderedReducer = queue.lastRenderedReducer;
       if (lastRenderedReducer !== null) {
-        let prevDispatcher;
+        // let prevDispatcher;
         try {
           const currentState: S = queue.lastRenderedState as any;
+          // 这个变量名...中文理解起来应该是...非常想要的...那种...状态
+          // 这里调用默认reduce， 得到新的state
           const eagerState = lastRenderedReducer(currentState, action);
           // Stash the eagerly computed state, and the reducer used to compute
           // it, on the update object. If the reducer hasn't changed by the
@@ -378,7 +385,7 @@ function dispatchAction<S, A>(fiber: any, queue: UpdateQueue<S, A>, action: A) {
           // without calling the reducer again.
           update.eagerReducer = lastRenderedReducer;
           update.eagerState = eagerState;
-          if (is(eagerState, currentState)) {
+          if (Object.is(eagerState, currentState)) {
             // Fast path. We can bail out without scheduling React to re-render.
             // It's still possible that we'll need to rebase this update later,
             // if the component re-renders for a different reason and by that
@@ -391,6 +398,9 @@ function dispatchAction<S, A>(fiber: any, queue: UpdateQueue<S, A>, action: A) {
       }
     }
 
+    // 开始调度这个更新
+    // 这里这个fiber上已经存在了新的state
+    // fiber.memorized.queue.pending.eagerState
     scheduleUpdateOnFiber(fiber);
   }
 }

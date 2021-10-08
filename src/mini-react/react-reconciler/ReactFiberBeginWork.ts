@@ -9,7 +9,7 @@ import {
   PerformedWork,
 } from "../constants";
 import { shouldSetTextContent } from "../react-dom";
-import { reconcileChildFibers } from "./ReactChildFibers";
+import { cloneChildFibers, reconcileChildFibers } from "./ReactChildFibers";
 import { renderWithHooks } from "./ReactFiberHooks";
 import { cloneUpdateQueue, processUpdateQueue } from "./ReactUpdateQueue";
 
@@ -34,6 +34,21 @@ export function beginWork(current: any, workInProgress: any) {
       didReceiveUpdate = true;
     } else {
       didReceiveUpdate = false;
+      // This fiber does not have any pending work. Bailout without entering
+      // the begin phase. There's still some bookkeeping we that needs to be done
+      // in this optimized path, mostly pushing stuff onto the stack.
+      switch (workInProgress.tag) {
+        case HostRoot:
+          // pushHostRootContext(workInProgress);
+          // resetHydrationState();
+          break;
+        case HostComponent:
+          // pushHostContext(workInProgress);
+          break;
+      }
+
+      console.log("bailout...");
+      // return bailoutOnAlreadyFinishedWork(current, workInProgress);
     }
   } else {
     didReceiveUpdate = false;
@@ -43,21 +58,21 @@ export function beginWork(current: any, workInProgress: any) {
     case IndeterminateComponent: {
       return mountIndeterminateComponent(workInProgress, workInProgress.type);
     }
-    // case FunctionComponent: {
-    //   const Component = workInProgress.type;
-    //   const unresolvedProps = workInProgress.pendingProps;
-    //   const resolvedProps =
-    //     workInProgress.elementType === Component
-    //       ? unresolvedProps
-    //       : resolveDefaultProps(Component, unresolvedProps);
-    //   return updateFunctionComponent(
-    //     current,
-    //     workInProgress,
-    //     Component,
-    //     resolvedProps,
-    //     renderLanes
-    //   );
-    // }
+    case FunctionComponent: {
+      const Component = workInProgress.type;
+      const unresolvedProps = workInProgress.pendingProps;
+      const resolvedProps =
+        workInProgress.elementType === Component
+          ? unresolvedProps
+          : resolveDefaultProps(Component, unresolvedProps);
+      return updateFunctionComponent(
+        current,
+        workInProgress,
+        Component,
+        resolvedProps
+        // renderLanes
+      );
+    }
     case HostRoot:
       return updateHostRoot(current, workInProgress);
     case HostComponent:
@@ -66,6 +81,25 @@ export function beginWork(current: any, workInProgress: any) {
       return null;
   }
 }
+function bailoutOnAlreadyFinishedWork(
+  current: any,
+  workInProgress: any
+  // renderLanes: Lanes,
+): any {
+  if (current !== null) {
+    // Reuse previous dependencies
+    workInProgress.dependencies = current.dependencies;
+  }
+
+  // markSkippedUpdateLanes(workInProgress.lanes);
+
+  // Check if the children have any pending work.
+  // This fiber doesn't have work, but its subtree does. Clone the child
+  // fibers and continue.
+  cloneChildFibers(current, workInProgress);
+  return workInProgress.child;
+}
+
 export function markWorkInProgressReceivedUpdate() {
   didReceiveUpdate = true;
 }
@@ -107,6 +141,43 @@ function mountIndeterminateComponent(workInProgress: any, Component: any) {
   // 创建下一个节点
   reconcileChildren(null, workInProgress, value);
   // 返回下一个节点
+  return workInProgress.child;
+}
+
+function updateFunctionComponent(
+  current: any,
+  workInProgress: any,
+  Component: any,
+  nextProps: any
+) {
+  // let context;
+  // if (!disableLegacyContext) {
+  //   const unmaskedContext = getUnmaskedContext(workInProgress, Component, true);
+  //   context = getMaskedContext(workInProgress, unmaskedContext);
+  // }
+
+  let nextChildren;
+  // prepareToReadContext(workInProgress, renderLanes);
+  nextChildren = renderWithHooks(
+    current,
+    workInProgress,
+    Component,
+    nextProps
+    // context,
+    // renderLanes,
+  );
+
+  // if (current !== null && !didReceiveUpdate) {
+  //   bailoutHooks(current, workInProgress, renderLanes);
+  //   return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
+  // }
+
+  // React DevTools reads this flag.
+  workInProgress.flags |= PerformedWork;
+  reconcileChildren(current, workInProgress, nextChildren);
+
+  console.log("updateFunctionComponent get called...", workInProgress);
+
   return workInProgress.child;
 }
 
@@ -157,12 +228,15 @@ function updateHostRoot(current: any, workInProgress: any) {
   // Caution: React DevTools currently depends on this property
   // being called "element".
   const nextChildren = nextState.element;
+  console.log(nextChildren);
   // 初次渲染不走这个
   if (nextChildren === prevChildren) {
     // bailout
-    return null;
+    // return null;
+    cloneChildFibers(current, workInProgress);
+    return workInProgress.child;
   }
-  console.log(nextChildren);
+
   // 初次渲染时
   // 这里创建第一个wip下第一个节点
   reconcileChildren(current, workInProgress, nextChildren);

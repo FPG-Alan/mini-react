@@ -15,6 +15,11 @@ import {
 } from "../react-dom";
 
 export function completeWork(current: any, workInProgress: any) {
+  console.log(
+    "completeWork:::::::::",
+    workInProgress.tag,
+    workInProgress.pendingProps
+  );
   const newProps = workInProgress.pendingProps;
 
   switch (workInProgress.tag) {
@@ -158,6 +163,10 @@ function updateHostComponent(
   // If the update payload indicates that there is a change or if there
   // is a new ref we mark this as an update. All the work is done in commitWork.
   // 打上更新的标签(副作用标签?)
+  console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", oldProps, newProps);
+  console.log(updatePayload);
+  console.log("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
+
   if (updatePayload) {
     // markUpdate(workInProgress);
     workInProgress.flags |= Update;

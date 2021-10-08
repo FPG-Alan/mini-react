@@ -490,7 +490,30 @@ function deleteRemainingChildren(returnFiber: any, currentFirstChild: any) {
   }
   return null;
 }
+export function cloneChildFibers(current: any, workInProgress: any): void {
+  if (!(current === null || workInProgress.child === current.child)) {
+    throw new Error("Resuming work not yet implemented.");
+  }
 
+  if (workInProgress.child === null) {
+    return;
+  }
+
+  let currentChild = workInProgress.child;
+  let newChild = createWorkInProgress(currentChild, currentChild.pendingProps);
+  workInProgress.child = newChild;
+
+  newChild.return = workInProgress;
+  while (currentChild.sibling !== null) {
+    currentChild = currentChild.sibling;
+    newChild = newChild.sibling = createWorkInProgress(
+      currentChild,
+      currentChild.pendingProps
+    );
+    newChild.return = workInProgress;
+  }
+  newChild.sibling = null;
+}
 function useFiber(fiber: any, pendingProps: any) {
   // We currently set sibling to null and index to 0 here because it is easy
   // to forget to do before returning it. E.g. for the single child case.

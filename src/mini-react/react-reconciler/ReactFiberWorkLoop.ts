@@ -66,7 +66,7 @@ let shouldFireAfterActiveInstanceBlur = false;
 let nextEffect: any = null;
 
 export function scheduleUpdateOnFiber(fiber: any) {
-  const root = (fiber.tag === HostRoot && fiber.stateNode) || null;
+  const root = markUpdateLaneFromFiberToRoot(fiber);
 
   if (root === null) {
     return null;
@@ -76,31 +76,16 @@ export function scheduleUpdateOnFiber(fiber: any) {
   // priority as an argument to that function and this one.
   // const priorityLevel = getCurrentPriorityLevel();
 
-  if (
-    // Check if we're inside unbatchedUpdates
-    (executionContext & LegacyUnbatchedContext) !== NoContext &&
-    // Check if we're not already rendering
-    (executionContext & (RenderContext | CommitContext)) === NoContext
-  ) {
-    // Register pending interactions on the root to avoid losing traced interaction data.
-    schedulePendingInteractions(root);
-
-    // This is a legacy edge case. The initial mount of a ReactDOM.render-ed
-    // root inside of batchedUpdates should be synchronous, but layout updates
-    // should be deferred until the end of the batch.
-    performSyncWorkOnRoot(root);
-  } else {
-    ensureRootIsScheduled(root);
-    schedulePendingInteractions(root);
-    if (executionContext === NoContext) {
-      // Flush the synchronous work now, unless we're already working or inside
-      // a batch. This is intentionally inside scheduleUpdateOnFiber instead of
-      // scheduleCallbackForFiber to preserve the ability to schedule a callback
-      // without immediately flushing it. We only do this for user-initiated
-      // updates, to preserve historical behavior of legacy mode.
-      // resetRenderTimer();
-      // flushSyncCallbackQueue();
-    }
+  ensureRootIsScheduled(root);
+  // schedulePendingInteractions(root);
+  if (executionContext === NoContext) {
+    // Flush the synchronous work now, unless we're already working or inside
+    // a batch. This is intentionally inside scheduleUpdateOnFiber instead of
+    // scheduleCallbackForFiber to preserve the ability to schedule a callback
+    // without immediately flushing it. We only do this for user-initiated
+    // updates, to preserve historical behavior of legacy mode.
+    // resetRenderTimer();
+    // flushSyncCallbackQueue();
   }
 
   // We use this when assigning a lane for a transition inside
@@ -109,6 +94,88 @@ export function scheduleUpdateOnFiber(fiber: any) {
   // the same root, then it's not a huge deal, we just might batch more stuff
   // together more than necessary.
   // mostRecentlyUpdatedRoot = root;
+}
+
+/**
+ * 根据sourceFiber.return向上循环， 直到找到HostRoot fiber
+ */
+function markUpdateLaneFromFiberToRoot(sourceFiber: any): any {
+  // Walk the parent path to the root and update the child expiration time.
+  let node = sourceFiber;
+  // 第一次渲染时， sourceFiber是 host root fiber, 这个fiber没有return
+  // host root fiber的stateNode是fiber root node， fiber root node的current是 host root fiber
+  let parent = sourceFiber.return;
+
+  // 第一次渲染时， 跳过这个循环（没有父级）
+  // 若存在parent（fiber.return）
+  while (parent !== null) {
+    node = parent;
+    // 向上查找
+    parent = parent.return;
+  }
+
+  // 初次渲染时， node.tag === HostRoot
+  // 其他情况下， node.tag也应该是HostRoot(经过上面的while循环)
+  if (node.tag === HostRoot) {
+    const root = node.stateNode;
+    return root;
+  } else {
+    return null;
+  }
+}
+
+// Use this function to schedule a task for a root. There's only one task per
+// root; if a task was already scheduled, we'll check to make sure the priority
+// of the existing task is the same as the priority of the next level that the
+// root has work on. This function is called on every update, and right before
+// exiting a task.
+function ensureRootIsScheduled(root: any) {
+  // const existingCallbackNode = root.callbackNode;
+
+  // Check if any lanes are being starved by other work. If so, mark them as
+  // expired so we know to work on those next.
+  // markStarvedLanesAsExpired(root, currentTime);
+
+  // Determine the next lanes to work on, and their priority.
+  // const nextLanes = getNextLanes(
+  //   root,
+  //   root === workInProgressRoot ? workInProgressRootRenderLanes : NoLanes
+  // );
+  // This returns the priority level computed during the `getNextLanes` call.
+  // const newCallbackPriority = returnNextLanesPriority();
+
+  // if (nextLanes === NoLanes) {
+  //   // Special case: There's nothing to work on.
+  //   if (existingCallbackNode !== null) {
+  //     cancelCallback(existingCallbackNode);
+  //     root.callbackNode = null;
+  //     root.callbackPriority = NoLanePriority;
+  //   }
+  //   return;
+  // }
+
+  // Check if there's an existing task. We may be able to reuse it.
+  // if (existingCallbackNode !== null) {
+  //   const existingCallbackPriority = root.callbackPriority;
+  //   if (existingCallbackPriority === newCallbackPriority) {
+  //     // The priority hasn't changed. We can reuse the existing task. Exit.
+  //     return;
+  //   }
+  //   // The priority changed. Cancel the existing callback. We'll schedule a new
+  //   // one below.
+  //   cancelCallback(existingCallbackNode);
+  // }
+
+  // Schedule a new callback.
+  // let newCallbackNode;
+  // Special case: Sync React callbacks are scheduled on a special
+  // internal queue
+  // newCallbackNode = scheduleSyncCallback(
+  // performSyncWorkOnRoot.bind(null, root)
+  // );
+  performSyncWorkOnRoot(root);
+  // root.callbackPriority = newCallbackPriority;
+  // root.callbackNode = newCallbackNode;
 }
 
 export function performSyncWorkOnRoot(fiberRoot: any) {
