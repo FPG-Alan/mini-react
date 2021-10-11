@@ -12,20 +12,15 @@ export function ensureListeningTo(
   propKey: string,
   domElement: Element
 ) {
-  console.log(
-    "=============ensureListeningTo==============",
-    rootContainerElement
-  );
   propKey = propKey.toLowerCase();
   if (listenEvents.has(propKey)) {
     return;
   } else {
-    console.log(propKey);
     if (rootContainerElement === document) {
       rootContainerElement =
         rootContainerElement.getElementsByTagName("body")[0];
     }
-    console.log(rootContainerElement);
+
     rootContainerElement.addEventListener(
       propKey.split("on")[1],
       eventHandler.bind(null, propKey.split("on")[1])
@@ -34,7 +29,6 @@ export function ensureListeningTo(
 }
 
 function eventHandler(type: string, e: Event) {
-  console.log("event triger...", type);
   const propKey = `on${type.replace(/^\S/, (s) => s.toUpperCase())}`;
   //   const path = e.composedPath();
 
@@ -47,7 +41,7 @@ function eventHandler(type: string, e: Event) {
   const nativeEventTarget = getEventTarget(e);
   let targetInst = getClosestInstanceFromNode(nativeEventTarget);
 
-  //   console.log(targetInst);
+  //
 
   if (targetInst !== null) {
     const nearestMounted = getNearestMountedFiber(targetInst);
@@ -67,7 +61,6 @@ function eventHandler(type: string, e: Event) {
       }
     }
   }
-  console.log(targetInst);
 
   while (targetInst) {
     if (targetInst.pendingProps?.[propKey]) {

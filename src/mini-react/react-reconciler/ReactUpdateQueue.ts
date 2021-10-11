@@ -187,8 +187,6 @@ export function processUpdateQueue(
         instance
       );
 
-      console.log(newState);
-
       // 初次渲染， callBack为null
       const callback = update.callback;
       if (callback !== null) {
@@ -266,7 +264,6 @@ function getStateFromUpdate(
     }
     // Intentional fallthrough
     case UpdateState: {
-      console.log(update.payload);
       const payload = update.payload;
       let partialState;
       if (typeof payload === "function") {

@@ -446,7 +446,6 @@ function safelyCallDestroy(current: any, destroy: () => void) {
   try {
     destroy();
   } catch (error) {
-    console.log(error);
     // captureCommitPhaseError(current, error);
   }
 }
@@ -457,7 +456,6 @@ function safelyDetachRef(current: any) {
       try {
         ref(null);
       } catch (refError) {
-        console.log(refError);
         // captureCommitPhaseError(current, refError);
       }
     } else {

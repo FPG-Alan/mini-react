@@ -29,7 +29,6 @@ function render(
   children: ReactElement,
   container: HTMLElement & { _reactRootContainer?: any }
 ) {
-  console.log("----------render----------");
   let root = container._reactRootContainer;
   let fiberRoot: any;
   if (!root) {
@@ -38,7 +37,6 @@ function render(
       legacyCreateRootFromDOMContainer(container);
     fiberRoot = root._internalRoot;
 
-    console.log(root);
     // Initial mount should not be batched.
     updateContainer(children, fiberRoot);
   } else {
@@ -47,7 +45,6 @@ function render(
     updateContainer(children, fiberRoot);
   }
 
-  console.log("----------render done----------");
   return;
 }
 
@@ -496,7 +493,6 @@ export function setInitialProperties(
       props = rawProps;
   }
 
-  console.log(tag, props);
   assertValidProps(tag, props);
 
   setInitialDOMProperties(
@@ -543,7 +539,6 @@ function setInitialDOMProperties(
   nextProps: any,
   isCustomComponentTag: boolean
 ): void {
-  console.log(nextProps);
   for (const propKey in nextProps) {
     if (!nextProps.hasOwnProperty(propKey)) {
       continue;
@@ -644,12 +639,10 @@ export function diffProperties(
 
   // assertValidProps(tag, nextProps);
 
-  console.log("mmmmmmmmmmmmmmmmmmmmm");
   let propKey;
   let styleName;
   let styleUpdates: any = null;
   for (propKey in lastProps) {
-    console.log(propKey);
     if (
       nextProps.hasOwnProperty(propKey) ||
       !lastProps.hasOwnProperty(propKey) ||
@@ -671,7 +664,6 @@ export function diffProperties(
       propKey === "dangerouslySetInnerHTML" ||
       propKey === "children"
     ) {
-      console.log("Noop. This is handled by the clear text mechanism.");
       // Noop. This is handled by the clear text mechanism.
     } else if (propKey === "suppressContentEditableWarning") {
       // Noop
@@ -794,7 +786,6 @@ export function setValueForProperty(
   value: any,
   isCustomComponentTag: boolean
 ) {
-  console.log("==========setValueForProperty", name, value);
   const propertyInfo = getPropertyInfo(name);
   // return properties.hasOwnProperty(name) ? properties[name] : null;
   if (shouldIgnoreAttribute(name, propertyInfo, isCustomComponentTag)) {
@@ -803,7 +794,7 @@ export function setValueForProperty(
   if (shouldRemoveAttribute(name, value, propertyInfo, isCustomComponentTag)) {
     value = null;
   }
-  console.log("setValueForProperty=================", name, propertyInfo);
+
   // If the prop isn't in the special list, treat it as a simple attribute.
   if (isCustomComponentTag || propertyInfo === null) {
     if (isAttributeNameSafe(name)) {
@@ -811,7 +802,6 @@ export function setValueForProperty(
       if (value === null) {
         node.removeAttribute(attributeName);
       } else {
-        console.log("setAttribute", attributeName);
         node.setAttribute(attributeName, value);
       }
     }

@@ -23,12 +23,11 @@ export function reconcileChildFibers(
 ) {
   // Handle object types
   const isObject = typeof newChild === "object" && newChild !== null;
-  console.log("reconcileChildFibers", newChild);
+
   if (isObject) {
     // 初次渲染时， newChild.$$typeof = REACT_ELEMENT_TYPE = Symbol(react.element)
     switch (newChild.$$typeof) {
       case REACT_ELEMENT_TYPE:
-        console.log("????");
         return placeSingleChild(
           reconcileSingleElement(returnFiber, currentFirstChild, newChild),
           shouldTrackSideEffects
@@ -71,7 +70,6 @@ function reconcileSingleElement(
   currentFirstChild: any,
   element: any
 ) {
-  console.log("diff 算法在单一元素上调度");
   const key = element.key;
   let child = currentFirstChild;
   // 初次渲染， child应该为null

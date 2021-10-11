@@ -194,7 +194,6 @@ export function performSyncWorkOnRoot(fiberRoot: any) {
 // render 阶段
 // ----------------------------------------------------------------------------------
 export function renderRootSync(fiberRoot: any) {
-  console.log(">>>> render phase");
   // 暂时不懂， 跳过不看
   //  const prevDispatcher = pushDispatcher();
 
@@ -227,7 +226,6 @@ function performUnitOfWork(unitOfWork: any) {
   // next 应该是 unitOfWork.child
   let next = beginWork(current, unitOfWork);
 
-  console.log(unitOfWork.stateNode, "begin work complete");
   unitOfWork.memoizedProps = unitOfWork.pendingProps;
   if (next === null) {
     // If this doesn't spawn new work, complete the current work.
@@ -353,7 +351,7 @@ function commitRootImpl(root: any) {
   if (finishedWork === null) {
     return null;
   }
-  console.log(">>> commit phase", finishedWork);
+
   root.finishedWork = null;
 
   // commitRoot never returns a continuation; it always finishes synchronously.
@@ -408,7 +406,6 @@ function commitRootImpl(root: any) {
 
   // 如果存在第一个副作用， 对副作用链的循环开始
   if (firstEffect !== null) {
-    console.log(">>> begin loop on effect");
     // let previousLanePriority;
 
     const prevExecutionContext = executionContext;
@@ -543,7 +540,6 @@ function commitRootImpl(root: any) {
  * 2. 异步调度 uesEffect
  */
 function commitBeforeMutationEffects() {
-  console.log("commitBeforeMutationEffects");
   while (nextEffect !== null) {
     const current = nextEffect.alternate;
 
@@ -600,10 +596,7 @@ function commitMutationEffects(root: any) {
     // bitmap value, we remove the secondary effects from the effect tag and
     // switch on that value.
     const primaryFlags = flags & (Placement | Update | Deletion);
-    console.log(
-      "commitMutationEffects with flag: ",
-      nextEffect.child.stateNode
-    );
+
     switch (primaryFlags) {
       case Placement: {
         commitPlacement(nextEffect);
