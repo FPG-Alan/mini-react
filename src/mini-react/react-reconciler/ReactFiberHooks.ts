@@ -1,3 +1,4 @@
+import { Update, Passive as PassiveEffect, UpdateState } from "../constants";
 import { ReactCurrentDispatcher } from "../react/ReactHooks";
 import { markWorkInProgressReceivedUpdate } from "./ReactFiberBeginWork";
 import { scheduleUpdateOnFiber } from "./ReactFiberWorkLoop";
@@ -405,12 +406,136 @@ function dispatchAction<S, A>(fiber: any, queue: UpdateQueue<S, A>, action: A) {
   }
 }
 
+// useEffect
+// ====================================================
+export type Effect = {
+  tag: number;
+  create: () => (() => void) | void;
+  destroy: (() => void) | void;
+  deps: Array<any> | null;
+  next: Effect | null;
+};
+
+export type FunctionComponentUpdateQueue = { lastEffect: Effect | null };
+
+function pushEffect(
+  tag: any,
+  create: () => (() => void) | void,
+  destroy: (() => void) | void,
+  deps: Array<any> | null
+) {
+  const effect: Effect = {
+    tag,
+    create,
+    destroy,
+    deps,
+    // Circular
+    next: null,
+  };
+  let componentUpdateQueue: null | FunctionComponentUpdateQueue =
+    currentlyRenderingFiber.updateQueue;
+  if (componentUpdateQueue === null) {
+    componentUpdateQueue = { lastEffect: null };
+    currentlyRenderingFiber.updateQueue = componentUpdateQueue;
+    componentUpdateQueue.lastEffect = effect.next = effect;
+  } else {
+    const lastEffect = componentUpdateQueue.lastEffect;
+    if (lastEffect === null) {
+      componentUpdateQueue.lastEffect = effect.next = effect;
+    } else {
+      const firstEffect = lastEffect.next;
+      lastEffect.next = effect;
+      effect.next = firstEffect;
+      componentUpdateQueue.lastEffect = effect;
+    }
+  }
+  return effect;
+}
+
+function mountEffectImpl(
+  fiberFlags: any,
+  hookFlags: any,
+  create: () => (() => void) | void,
+  deps: Array<any> | null
+): void {
+  const hook = mountWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  currentlyRenderingFiber.flags |= fiberFlags;
+  hook.memoizedState = pushEffect(
+    HasEffect | hookFlags,
+    create,
+    undefined,
+    nextDeps
+  );
+}
+
+function updateEffectImpl(
+  fiberFlags: any,
+  hookFlags: any,
+  create: () => (() => void) | void,
+  deps: Array<any> | null
+): void {
+  const hook = updateWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  let destroy = undefined;
+
+  if (currentHook !== null) {
+    const prevEffect = currentHook.memoizedState;
+    destroy = prevEffect.destroy;
+    if (nextDeps !== null) {
+      const prevDeps = prevEffect.deps;
+      if (areHookInputsEqual(nextDeps, prevDeps)) {
+        pushEffect(hookFlags, create, destroy, nextDeps);
+        return;
+      }
+    }
+  }
+
+  currentlyRenderingFiber.flags |= fiberFlags;
+
+  hook.memoizedState = pushEffect(
+    HasEffect | hookFlags,
+    create,
+    destroy,
+    nextDeps
+  );
+}
+
+function mountEffect(
+  create: () => (() => void) | void,
+  deps: Array<any> | null
+): void {
+  return mountEffectImpl(Update | PassiveEffect, Passive, create, deps);
+}
+
+function updateEffect(
+  create: () => (() => void) | void,
+  deps: Array<any> | null
+): void {
+  return updateEffectImpl(Update | PassiveEffect, Passive, create, deps);
+}
+
+function areHookInputsEqual(nextDeps: Array<any>, prevDeps: Array<any> | null) {
+  if (prevDeps === null) {
+    return false;
+  }
+
+  for (let i = 0; i < prevDeps.length && i < nextDeps.length; i++) {
+    if (Object.is(nextDeps[i], prevDeps[i])) {
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+// ====================================================
+
 const HooksDispatcherOnMount = {
   // readContext,
 
   // useCallback: mountCallback,
   // useContext: readContext,
-  // useEffect: mountEffect,
+  useEffect: mountEffect,
   // useImperativeHandle: mountImperativeHandle,
   // useLayoutEffect: mountLayoutEffect,
   // useMemo: mountMemo,
@@ -431,7 +556,7 @@ const HooksDispatcherOnUpdate = {
 
   // useCallback: updateCallback,
   // useContext: readContext,
-  // useEffect: updateEffect,
+  useEffect: updateEffect,
   // useImperativeHandle: updateImperativeHandle,
   // useLayoutEffect: updateLayoutEffect,
   // useMemo: updateMemo,

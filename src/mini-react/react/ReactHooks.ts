@@ -34,3 +34,11 @@ export function useState<S>(
   const dispatcher = resolveDispatcher();
   return dispatcher.useState(initialState);
 }
+
+export function useEffect(
+  create: () => (() => void) | void,
+  deps: Array<any> | null
+): void {
+  const dispatcher = resolveDispatcher();
+  return dispatcher.useEffect(create, deps);
+}
