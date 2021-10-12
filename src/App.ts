@@ -1,9 +1,14 @@
 import { createElement } from "./mini-react/react/react";
-import { useState } from "./mini-react/react/ReactHooks";
+import { useEffect, useState } from "./mini-react/react/ReactHooks";
 import "./App.css";
 
 function App() {
   const [state, dispatch] = useState(0);
+
+  useEffect(() => {
+    console.log(state);
+  }, [state]);
+
   return createElement(
     "div",
     {

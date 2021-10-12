@@ -185,6 +185,7 @@ export function performSyncWorkOnRoot(fiberRoot: any) {
 
   // commit 阶段
   commitRootImpl(fiberRoot);
+  console.log("do not go gentle into that good night");
 
   // Before exiting, make sure there's a callback scheduled for the next
   // pending level.
@@ -403,7 +404,6 @@ function commitRootImpl(root: any) {
     // 这里root fiber 的副作用链可能也不存在
     firstEffect = finishedWork.firstEffect;
   }
-
   // 如果存在第一个副作用， 对副作用链的循环开始
   if (firstEffect !== null) {
     // let previousLanePriority;
@@ -489,8 +489,8 @@ function commitRootImpl(root: any) {
     // TODO: Maybe there's a better way to report this.
   }
 
-  const rootDidHavePassiveEffects = rootDoesHavePassiveEffects;
-
+  // const rootDidHavePassiveEffects = rootDoesHavePassiveEffects;
+  console.log(rootDoesHavePassiveEffects);
   if (rootDoesHavePassiveEffects) {
     // This commit has passive effects. Stash a reference to them. But don't
     // schedule a callback until after flushing layout work.
@@ -512,6 +512,7 @@ function commitRootImpl(root: any) {
     }
   }
 
+  flushPassiveEffects();
   // Read this again, since an effect might have updated it
   // remainingLanes = root.pendingLanes;
 
@@ -552,7 +553,7 @@ function commitBeforeMutationEffects() {
       // the earliest opportunity.
       if (!rootDoesHavePassiveEffects) {
         rootDoesHavePassiveEffects = true;
-        flushPassiveEffects();
+        // flushPassiveEffects();
         // scheduleCallback(NormalSchedulerPriority, () => {
         //   flushPassiveEffects();
         //   return null;
@@ -669,10 +670,10 @@ export function enqueuePendingPassiveHookEffectMount(
 
     // });
 
-    setTimeout(() => {
-      flushPassiveEffects();
-      return null;
-    }, 5000);
+    // setTimeout(() => {
+    //   flushPassiveEffects();
+    //   return null;
+    // }, 5000);
   }
 }
 
@@ -688,31 +689,23 @@ export function enqueuePendingPassiveHookEffectUnmount(
     //   flushPassiveEffects();
     //   return null;
     // });
-    setTimeout(() => {
-      flushPassiveEffects();
-      return null;
-    }, 5000);
+    // setTimeout(() => {
+    //   flushPassiveEffects();
+    //   return null;
+    // }, 5000);
   }
 }
 
 export function flushPassiveEffects(): boolean {
   // Returns whether passive effects were flushed.
-  if (pendingPassiveEffectsRenderPriority !== NoPriority) {
-    const priorityLevel =
-      pendingPassiveEffectsRenderPriority > NormalPriority
-        ? NormalPriority
-        : pendingPassiveEffectsRenderPriority;
-    pendingPassiveEffectsRenderPriority = NoPriority;
-    // return runWithPriority(priorityLevel, flushPassiveEffectsImpl);
-    return flushPassiveEffectsImpl();
-  }
-  return false;
+  return flushPassiveEffectsImpl();
 }
 
 function flushPassiveEffectsImpl() {
   if (rootWithPendingPassiveEffects === null) {
     return false;
   }
+  console.log("flushPassiveEffectsImpl");
 
   const root = rootWithPendingPassiveEffects;
   // const lanes = pendingPassiveEffectsLanes;
@@ -755,6 +748,7 @@ function flushPassiveEffectsImpl() {
   }
   // Second pass: Create new passive effects.
   const mountEffects = pendingPassiveHookEffectsMount;
+  console.log(mountEffects);
   pendingPassiveHookEffectsMount = [];
   for (let i = 0; i < mountEffects.length; i += 2) {
     const effect = mountEffects[i];

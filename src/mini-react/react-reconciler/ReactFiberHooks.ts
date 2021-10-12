@@ -467,6 +467,8 @@ function mountEffectImpl(
     undefined,
     nextDeps
   );
+
+  console.log("mountEffectImpl");
 }
 
 function updateEffectImpl(

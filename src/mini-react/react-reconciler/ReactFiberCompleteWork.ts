@@ -159,7 +159,7 @@ function updateHostComponent(
   // is a new ref we mark this as an update. All the work is done in commitWork.
   // 打上更新的标签(副作用标签?)
 
-  console.log("complete work - updateHostComponent", updatePayload);
+  // console.log("complete work - updateHostComponent", updatePayload);
   if (updatePayload) {
     // markUpdate(workInProgress);
     workInProgress.flags |= Update;
