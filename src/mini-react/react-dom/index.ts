@@ -29,48 +29,21 @@ function render(
   children: ReactElement,
   container: HTMLElement & { _reactRootContainer?: any }
 ) {
-  let root = container._reactRootContainer;
-  let fiberRoot: any;
-  if (!root) {
-    // Initial mount
-    root = container._reactRootContainer =
-      legacyCreateRootFromDOMContainer(container);
-    fiberRoot = root._internalRoot;
+  let fiberRoot = container._reactRootContainer;
+  if (!fiberRoot) {
+    // First clear any existing content.
+    let rootSibling;
+    while ((rootSibling = container.lastChild)) {
+      container.removeChild(rootSibling);
+    }
 
-    // Initial mount should not be batched.
-    updateContainer(children, fiberRoot);
-  } else {
-    fiberRoot = root._internalRoot;
-    // Update
-    updateContainer(children, fiberRoot);
+    fiberRoot = container._reactRootContainer = createFiberRoot(
+      container,
+      LegacyRoot
+    );
   }
 
-  return;
-}
-
-function legacyCreateRootFromDOMContainer(container: HTMLElement) {
-  // First clear any existing content.
-  let rootSibling;
-  while ((rootSibling = container.lastChild)) {
-    container.removeChild(rootSibling);
-  }
-
-  const root = createFiberRoot(container, LegacyRoot);
-
-  (container as any)[internalContainerInstanceKey] = root.current;
-
-  // 事件代理开始
-  // 我们暂时不看react的事件系统
-  // =============================================================================
-  // const rootContainerElement =
-  //   container.nodeType === COMMENT_NODE ? container.parentNode : container;
-  // listenToAllSupportedEvents(rootContainerElement);
-
-  // =============================================================================
-
-  return {
-    _internalRoot: root,
-  };
+  updateContainer(children, fiberRoot);
 }
 
 export function createTextInstance(text: string, internalInstanceHandle: any) {
