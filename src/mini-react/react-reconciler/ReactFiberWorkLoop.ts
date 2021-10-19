@@ -100,6 +100,7 @@ function performSyncWorkOnRoot(fiberRoot: any) {
   const finishedWork = fiberRoot.current.alternate;
   fiberRoot.finishedWork = finishedWork;
 
+  console.log(finishedWork.firstEffect);
   // commit 阶段
   commitRootImpl(fiberRoot);
   console.log("do not go gentle into that good night");
@@ -125,36 +126,22 @@ function renderRootSync(fiberRoot: any) {
 }
 
 function performUnitOfWork(unitOfWork: any) {
-  // The current, flushed, state of this fiber is the alternate. Ideally
-  // nothing should rely on this, but relying on it here means that we don't
-  // need an additional field on the work in progress.
-  // 在第一次渲染的过程中， 每一次current都为null
   const current = unitOfWork.alternate;
-
   // next 应该是 unitOfWork.child
   let next = beginWork(current, unitOfWork);
 
   unitOfWork.memoizedProps = unitOfWork.pendingProps;
   if (next === null) {
-    // If this doesn't spawn new work, complete the current work.
-
     // 没有 child 节点了, 深度优先搜索触底了
-    // (completeUnitOfWork 还有可能产生新的工作)...
     completeUnitOfWork(unitOfWork);
   } else {
     // 循环， 第一次到达这里时， next应该是 host fiber root 的child, 事实上是我们的应用的根节点对应的fiber节点，
-    // 对应学习的例子里， 这个fiber节点对应 <App>...</App>
     workInProgress = next;
   }
 }
 
 // 因为是深度优先搜索, 首次渲染时, 第一个到达这里的 unitOfWork 应该是fiber最深层的节点
-// 在我用于学习的例子里， 这个fiber节点是一个tag = HostText = 6 文本节点 ("count is: ")
 function completeUnitOfWork(unitOfWork: any) {
-  // Attempt to complete the current unit of work, then move to the next
-  // sibling. If there are no more siblings, return to the parent fiber.
-  // 完成当前节点的工作
-  // 移动到sibling, 若sibling不存在则移动到当前节点的父级
   let completedWork = unitOfWork;
   do {
     // The current, flushed, state of this fiber is the alternate. Ideally
@@ -168,18 +155,9 @@ function completeUnitOfWork(unitOfWork: any) {
     // Check if the work completed or if something threw.
     // 正常情况下应该是NoFlags = 0, 按位与后应该是NoFlags
     if ((completedWork.flags & Incomplete) === NoFlags) {
-      let next;
       // 生成dom， 并挂载到fiber.stateNode上
       // 对于tag = IndeterminateComponent / FunctionComponent / ClassComponent 之类的 “非宿主环境提供的组件”， 基本就是什么都不做
-      next = completeWork(current, completedWork);
-
-      // 上面说completeUnitOfWork可能会产生新的工作就是这里了
-      if (next !== null) {
-        // Completing this fiber spawned new work. Work on that next.
-        workInProgress = next;
-        return;
-      }
-
+      completeWork(current, completedWork);
       if (
         returnFiber !== null &&
         // Do not append effects to parents if a sibling failed to complete
@@ -213,7 +191,6 @@ function completeUnitOfWork(unitOfWork: any) {
         // list. PerformedWork effect is read by React DevTools but shouldn't be
         // committed.
         // 如果当前fiber节点的flags不是NoFlags或PerformedWork， 把这个节点本身加到父级的副作用列表上
-        // 为啥要这样暂时也不知道
         if (flags > PerformedWork) {
           if (returnFiber.lastEffect !== null) {
             returnFiber.lastEffect.nextEffect = completedWork;
