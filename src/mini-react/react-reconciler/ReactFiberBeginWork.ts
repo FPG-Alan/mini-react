@@ -1,5 +1,4 @@
 import {
-  ClassComponent,
   ContentReset,
   FunctionComponent,
   HostComponent,
@@ -18,56 +17,19 @@ import { cloneUpdateQueue, processUpdateQueue } from "./ReactUpdateQueue";
  * 2. 清除 wip.lanes
  * 3. 根据 wip.tag 分发处理函数
  */
-let didReceiveUpdate = false;
 export function beginWork(current: any, workInProgress: any) {
-  if (current !== null) {
-    // 更新阶段
-    const oldProps = current.memoizedProps;
-    const newProps = workInProgress.pendingProps;
-
-    // 制作浅比较
-    if (oldProps !== newProps) {
-      // If props or context changed, mark the fiber as having performed work.
-      // This may be unset if the props are determined to be equal later (memo).
-      didReceiveUpdate = true;
-    } else {
-      didReceiveUpdate = false;
-      // This fiber does not have any pending work. Bailout without entering
-      // the begin phase. There's still some bookkeeping we that needs to be done
-      // in this optimized path, mostly pushing stuff onto the stack.
-      switch (workInProgress.tag) {
-        case HostRoot:
-          // pushHostRootContext(workInProgress);
-          // resetHydrationState();
-          break;
-        case HostComponent:
-          // pushHostContext(workInProgress);
-          break;
-      }
-
-      // return bailoutOnAlreadyFinishedWork(current, workInProgress);
-    }
-  } else {
-    didReceiveUpdate = false;
-  }
-
   switch (workInProgress.tag) {
     case IndeterminateComponent: {
       return mountIndeterminateComponent(workInProgress, workInProgress.type);
     }
     case FunctionComponent: {
       const Component = workInProgress.type;
-      const unresolvedProps = workInProgress.pendingProps;
-      const resolvedProps =
-        workInProgress.elementType === Component
-          ? unresolvedProps
-          : resolveDefaultProps(Component, unresolvedProps);
+      const resolvedProps = workInProgress.pendingProps;
       return updateFunctionComponent(
         current,
         workInProgress,
         Component,
         resolvedProps
-        // renderLanes
       );
     }
     case HostRoot:
@@ -78,28 +40,7 @@ export function beginWork(current: any, workInProgress: any) {
       return null;
   }
 }
-function bailoutOnAlreadyFinishedWork(
-  current: any,
-  workInProgress: any
-  // renderLanes: Lanes,
-): any {
-  if (current !== null) {
-    // Reuse previous dependencies
-    workInProgress.dependencies = current.dependencies;
-  }
 
-  // markSkippedUpdateLanes(workInProgress.lanes);
-
-  // Check if the children have any pending work.
-  // This fiber doesn't have work, but its subtree does. Clone the child
-  // fibers and continue.
-  cloneChildFibers(current, workInProgress);
-  return workInProgress.child;
-}
-
-export function markWorkInProgressReceivedUpdate() {
-  didReceiveUpdate = true;
-}
 /**
  * 1. 执行函数组件函数体， 获取value(children)
  * 2. 确认 wip.tag 为 FunctionComponent
@@ -111,22 +52,7 @@ function mountIndeterminateComponent(workInProgress: any, Component: any) {
   // 这里的pendingProps是jsx上的对应节点的props
   const props = workInProgress.pendingProps;
 
-  let value;
-
-  // hooks??
-  // 之前有提到过, 如果一个fiber的tag = IndeterminateComponent = 2, 其实就是一个函数组件
-  // 暂时理解为调用函数组件进行渲染, 得到的应该是一个jsx对象
-  // 在我学习的例子里, 是下面这样的对象
-  // $$typeof: Symbol(react.element)
-  // key: null
-  // props: {className: 'App', children: {…}}
-  // ref: null
-  // type: "div"
-  // _owner: FiberNode {tag: 2, key: null, stateNode: null, elementType: ƒ, type: ƒ, …}
-  // _store: {validated: false}
-  // _self: null
-  // _source: null
-  value = renderWithHooks(null, workInProgress, Component, props);
+  const nextChildren = renderWithHooks(null, workInProgress, Component, props);
   // React DevTools reads this flag.
   // wip flags是上一轮创建wip这个fiber时设置的, 此处应该是 Placement = 3;
   workInProgress.flags |= PerformedWork;
@@ -136,7 +62,7 @@ function mountIndeterminateComponent(workInProgress: any, Component: any) {
   workInProgress.tag = FunctionComponent;
 
   // 创建下一个节点
-  reconcileChildren(null, workInProgress, value);
+  reconcileChildren(null, workInProgress, nextChildren);
   // 返回下一个节点
   return workInProgress.child;
 }
@@ -147,27 +73,12 @@ function updateFunctionComponent(
   Component: any,
   nextProps: any
 ) {
-  // let context;
-  // if (!disableLegacyContext) {
-  //   const unmaskedContext = getUnmaskedContext(workInProgress, Component, true);
-  //   context = getMaskedContext(workInProgress, unmaskedContext);
-  // }
-
-  let nextChildren;
-  // prepareToReadContext(workInProgress, renderLanes);
-  nextChildren = renderWithHooks(
+  const nextChildren = renderWithHooks(
     current,
     workInProgress,
     Component,
     nextProps
-    // context,
-    // renderLanes,
   );
-
-  // if (current !== null && !didReceiveUpdate) {
-  //   bailoutHooks(current, workInProgress, renderLanes);
-  //   return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
-  // }
 
   // React DevTools reads this flag.
   workInProgress.flags |= PerformedWork;
@@ -268,19 +179,4 @@ export function reconcileChildren(
       true
     );
   }
-}
-
-export function resolveDefaultProps(Component: any, baseProps: Object): Object {
-  if (Component && Component.defaultProps) {
-    // Resolve default props. Taken from ReactElement
-    const props = Object.assign({}, baseProps);
-    const defaultProps = Component.defaultProps;
-    for (const propName in defaultProps) {
-      if ((props as any)[propName] === undefined) {
-        (props as any)[propName] = defaultProps[propName];
-      }
-    }
-    return props;
-  }
-  return baseProps;
 }

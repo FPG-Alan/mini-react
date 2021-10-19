@@ -1,5 +1,5 @@
 import { UpdateState } from "../constants";
-import { performSyncWorkOnRoot } from "./ReactFiberWorkLoop";
+import { scheduleUpdateOnFiber } from "./ReactFiberWorkLoop";
 import { enqueueUpdate } from "./ReactUpdateQueue";
 
 /**
@@ -22,5 +22,5 @@ export function updateContainer(children: any, fiberRoot: any) {
   };
 
   enqueueUpdate(hostFiber, update);
-  performSyncWorkOnRoot(fiberRoot);
+  scheduleUpdateOnFiber(hostFiber);
 }

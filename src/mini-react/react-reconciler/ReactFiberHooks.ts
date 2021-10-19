@@ -1,6 +1,5 @@
 import { Update, Passive as PassiveEffect, UpdateState } from "../constants";
 import { ReactCurrentDispatcher } from "../react/ReactHooks";
-import { markWorkInProgressReceivedUpdate } from "./ReactFiberBeginWork";
 import { scheduleUpdateOnFiber } from "./ReactFiberWorkLoop";
 
 export const NoFlags = /*  */ 0b000;
@@ -298,12 +297,6 @@ function updateReducer<S, I, A>(
       newBaseState = newState;
     } else {
       (newBaseQueueLast as any).next = newBaseQueueFirst;
-    }
-
-    // Mark that the fiber performed work, but only if the new state is
-    // different from the current state.
-    if (!Object.is(newState, hook.memoizedState)) {
-      markWorkInProgressReceivedUpdate();
     }
 
     hook.memoizedState = newState;
