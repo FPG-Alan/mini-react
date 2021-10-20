@@ -109,6 +109,7 @@ function reconcileSingleTextNode(
   currentFirstChild: any,
   textContent: any
 ) {
+  console.log(">>>>>>>>>>>");
   // There's no need to check for keys on text nodes since we don't have a
   // way to define them.
   if (currentFirstChild !== null && currentFirstChild.tag === HostText) {

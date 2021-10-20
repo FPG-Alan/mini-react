@@ -12,13 +12,16 @@ function App() {
   return createElement(
     "div",
     {
-      className: "App",
+      className: "App2",
       onClick: () => {
         console.log("hello darkness my old friend");
         dispatch((state) => state + 1);
       },
     },
-    createElement("h1", null, "hello world!" + state)
+    createElement("h1", { style: { opacity: 0.5, fontSize: "19px" } }, [
+      "hello world!" + state,
+      "test",
+    ])
   );
 }
 

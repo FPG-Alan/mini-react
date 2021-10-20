@@ -512,13 +512,13 @@ function setInitialDOMProperties(
   nextProps: any,
   isCustomComponentTag: boolean
 ): void {
+  console.log(nextProps);
   for (const propKey in nextProps) {
     if (!nextProps.hasOwnProperty(propKey)) {
       continue;
     }
     const nextProp = nextProps[propKey];
     if (propKey === "style") {
-      // Relies on `updateStylesByID` not mutating `styleUpdates`.
       setValueForStyles(domElement, nextProp);
     } else if (propKey === "dangerouslySetInnerHTML") {
       const nextHtml = nextProp ? nextProp["HTML"] : undefined;
@@ -534,29 +534,16 @@ function setInitialDOMProperties(
         // https://github.com/facebook/react/issues/6731#issuecomment-254874553
         const canSetTextContent = tag !== "textarea" || nextProp !== "";
         if (canSetTextContent) {
+          console.log("????");
           setTextContent(domElement, nextProp);
+          console.log(domElement);
         }
       } else if (typeof nextProp === "number") {
         setTextContent(domElement, "" + nextProp);
       }
-    } else if (
-      propKey === "suppressContentEditableWarning" ||
-      propKey === "suppressHydrationWarning"
-    ) {
-      // Noop
-    } else if (propKey === "autoFocus") {
-      // We polyfill it separately on the client during commit.
-      // We could have excluded it in the property list instead of
-      // adding a special case here, but then it wouldn't be emitted
-      // on server rendering (but we *do* want to emit it in SSR).
     } else if (propKey[0] === "o" && propKey[1] === "n") {
       if (nextProp != null) {
         ensureListeningTo(rootContainerElement, propKey, domElement);
-        // if (!enableEagerRootListeners) {
-        //   ensureListeningTo(rootContainerElement, propKey, domElement);
-        // } else if (propKey === 'onScroll') {
-        //   listenToNonDelegatedEvent('scroll', domElement);
-        // }
       }
     } else if (nextProp != null) {
       setValueForProperty(domElement, propKey, nextProp, isCustomComponentTag);
@@ -866,6 +853,7 @@ export function setValueForStyles(node: HTMLElement, styles: any) {
     if (styleName === "float") {
       styleName = "cssFloat";
     }
+
     if (isCustomProperty) {
       style.setProperty(styleName, styleValue);
     } else {
