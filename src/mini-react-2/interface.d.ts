@@ -5,27 +5,30 @@ type JSX = {
 };
 
 // type FiberFlags
-
+type FiberRoot = {
+  current: Fiber;
+};
 type Fiber = {
   // diff
   type: JSX["type"];
   key: string | number;
   index: number;
 
-  tags: "HostComponent" | "FunctionComponent" | "HostRoot";
+  tags: "HostComponent" | "FunctionComponent" | "HostRoot" | "HostTextNode";
   flags: number;
 
   // 链表
-  return: Fiber;
-  slibing: Fiber;
-  child: Fiber;
+  return: Fiber | null;
+  slibing: Fiber | null;
+  child: Fiber | null;
 
   // 更新
-  pendingProps: JSX["props"];
-  memoizedProps: JSX["props"];
+  pendingProps: any;
+  memoizedProps: any;
+  memoizedState: any;
 
   stateNode: HTMLElement | null;
 
-  current: Fiber;
-  alternate: Fiber;
+  current: Fiber | null;
+  alternate: Fiber | null;
 };

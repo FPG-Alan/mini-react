@@ -26,3 +26,21 @@ function App() {
 }
 
 export default App;
+
+function App2() {
+  return createElement(
+    "div",
+    {
+      className: "App2",
+      onClick: () => {
+        console.log("hello darkness my old friend");
+      },
+    },
+    createElement("h1", { style: { opacity: 0.5, fontSize: "19px" } }, [
+      "hello world!",
+      "test",
+    ])
+  );
+}
+
+export { App2 };
