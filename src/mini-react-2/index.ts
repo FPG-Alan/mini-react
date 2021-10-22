@@ -25,6 +25,7 @@ export function render(
   let fiberRoot = container[FIBER_ROOT_BINDER];
   if (!fiberRoot) {
     fiberRoot = {
+      container,
       current: root,
     };
 
@@ -32,6 +33,8 @@ export function render(
   } else {
     fiberRoot.current = root;
   }
+
+  root.stateNode = fiberRoot;
   // 调度更新
   updateOnFiber(root);
 }
@@ -42,22 +45,31 @@ function updateOnFiber(fiber: Fiber) {
   const root = findRootFiber(fiber);
 
   if (root) {
-    let wipRoot = { ...root };
+    let wipRoot: Fiber = { ...root };
     let wipFiber: Fiber | null = wipRoot;
+    // 开始深度优先遍历
     while (wipFiber) {
-      wipFiber = workOnFiber(wipFiber);
+      // beignWork
+      const nextChild = beginWorkOnFiber(wipFiber);
+
+      if (nextChild) {
+        wipFiber = nextChild;
+      } else {
+        // completeWork
+        wipFiber = completeWorkOnFiber(wipFiber);
+      }
     }
-
+    // commitWork
     console.log(wipRoot);
-  }
 
-  // 开始深度优先遍历
-  // beignWork
-  // completeWork
-  // commitWork
+    (wipRoot.stateNode as FiberRoot).container.appendChild(
+      wipRoot.child?.child?.stateNode as HTMLElement
+    );
+    (wipRoot.stateNode as FiberRoot).current = wipRoot;
+  }
 }
 
-function workOnFiber(wipFiber: Fiber): Fiber | null {
+function beginWorkOnFiber(wipFiber: Fiber): Fiber | null {
   if (wipFiber.tags === "HostRoot" && wipFiber.pendingProps) {
     const childFiber = createFiber(wipFiber.pendingProps);
     childFiber.return = wipFiber;
@@ -66,8 +78,6 @@ function workOnFiber(wipFiber: Fiber): Fiber | null {
   }
 
   if (wipFiber.tags === "FunctionComponent") {
-    console.log("wip is function component");
-    console.log(wipFiber);
     const element = (wipFiber.type as Function)(wipFiber.pendingProps);
     const child = diffChildren(element, wipFiber);
     wipFiber.child = child;
@@ -81,6 +91,50 @@ function workOnFiber(wipFiber: Fiber): Fiber | null {
   }
 
   return null;
+}
+
+function completeWorkOnFiber(wipFiber: Fiber) {
+  let currentFiber: Fiber | null = wipFiber;
+  while (currentFiber) {
+    if (currentFiber.tags === "HostTextNode") {
+      currentFiber.stateNode = document.createTextNode(wipFiber.pendingProps);
+    }
+
+    if (currentFiber.tags === "HostComponent") {
+      currentFiber.stateNode = document.createElement(
+        currentFiber.type as string
+      );
+
+      // 把他子级的dom全部都append进来
+      appendAllChildren(currentFiber);
+    }
+
+    if (currentFiber.slibing) {
+      return currentFiber.slibing;
+    } else {
+      currentFiber = currentFiber.return;
+    }
+  }
+
+  return null;
+}
+
+function appendAllChildren(fiber: Fiber) {
+  if (fiber.stateNode) {
+    let currentChild = fiber.child;
+    while (currentChild) {
+      if (
+        currentChild.stateNode &&
+        (currentChild.tags === "HostTextNode" ||
+          currentChild.tags === "HostComponent")
+      ) {
+        (fiber.stateNode as HTMLElement).appendChild(
+          currentChild.stateNode as HTMLElement
+        );
+      }
+      currentChild = currentChild.slibing;
+    }
+  }
 }
 
 /**

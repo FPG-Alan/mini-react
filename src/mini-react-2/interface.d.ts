@@ -7,6 +7,7 @@ type JSX = {
 // type FiberFlags
 type FiberRoot = {
   current: Fiber;
+  container: HTMLElement;
 };
 type Fiber = {
   // diff
@@ -27,7 +28,7 @@ type Fiber = {
   memoizedProps: any;
   memoizedState: any;
 
-  stateNode: HTMLElement | null;
+  stateNode: FiberRoot | HTMLElement | Text | null;
 
   current: Fiber | null;
   alternate: Fiber | null;

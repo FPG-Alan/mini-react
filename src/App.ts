@@ -38,7 +38,6 @@ function App2() {
     },
     createElement("h1", { style: { opacity: 0.5, fontSize: "19px" } }, [
       "hello world!",
-      "test",
     ])
   );
 }
