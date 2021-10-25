@@ -100,7 +100,7 @@ function performSyncWorkOnRoot(fiberRoot: any) {
   const finishedWork = fiberRoot.current.alternate;
   fiberRoot.finishedWork = finishedWork;
 
-  console.log(finishedWork.firstEffect);
+  console.log(finishedWork);
   // commit 阶段
   commitRootImpl(fiberRoot);
   console.log("do not go gentle into that good night");
@@ -498,7 +498,6 @@ function flushPassiveEffectsImpl() {
   }
   // Second pass: Create new passive effects.
   const mountEffects = pendingPassiveHookEffectsMount;
-  console.log(mountEffects);
   pendingPassiveHookEffectsMount = [];
   for (let i = 0; i < mountEffects.length; i += 2) {
     const effect = mountEffects[i];

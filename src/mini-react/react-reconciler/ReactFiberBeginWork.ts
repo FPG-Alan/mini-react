@@ -113,6 +113,7 @@ function updateHostComponent(current: any, workInProgress: any) {
   }
 
   reconcileChildren(current, workInProgress, nextChildren);
+  console.log(workInProgress.type, workInProgress.flags);
   return workInProgress.child;
 }
 

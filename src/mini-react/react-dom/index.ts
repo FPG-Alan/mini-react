@@ -512,7 +512,6 @@ function setInitialDOMProperties(
   nextProps: any,
   isCustomComponentTag: boolean
 ): void {
-  console.log(nextProps);
   for (const propKey in nextProps) {
     if (!nextProps.hasOwnProperty(propKey)) {
       continue;
@@ -534,9 +533,7 @@ function setInitialDOMProperties(
         // https://github.com/facebook/react/issues/6731#issuecomment-254874553
         const canSetTextContent = tag !== "textarea" || nextProp !== "";
         if (canSetTextContent) {
-          console.log("????");
           setTextContent(domElement, nextProp);
-          console.log(domElement);
         }
       } else if (typeof nextProp === "number") {
         setTextContent(domElement, "" + nextProp);

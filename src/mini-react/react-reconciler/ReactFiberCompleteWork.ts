@@ -139,10 +139,16 @@ function appendAllChildren(parent: Element, workInProgress: any) {
     if (node === workInProgress) {
       return;
     }
+
+    // 从底部向上, 每一层寻找是否还有兄弟节点, 一旦有兄弟节点, 就跳出while循环
+    // 若每一层都没有, 最后回到顶层或wip层, 则直接退出
     while (node.sibling === null) {
+      // 若node没有兄弟节点
       if (node.return === null || node.return === workInProgress) {
+        // 直到找到根节点, 或者wip的子节点为止
         return;
       }
+      // 就一直向上找
       node = node.return;
     }
     node.sibling.return = node.return;

@@ -6,7 +6,7 @@ function App() {
   const [state, dispatch] = useState(0);
 
   useEffect(() => {
-    console.log(state);
+    // console.log(state);
   }, [state]);
 
   return createElement(
