@@ -1,4 +1,10 @@
-import { createFiber, createRootFiber } from "./fiber";
+import {
+  createFiber,
+  createRootFiber,
+  NoFlags,
+  Placement,
+  Update,
+} from "./fiber";
 
 export function createElement(
   type: JSX["type"],
@@ -39,13 +45,19 @@ export function render(
   updateOnFiber(root);
 }
 
-function updateOnFiber(fiber: Fiber) {
+let render_number = 0;
+export function updateOnFiber(fiber: Fiber) {
   console.log("update on fiber");
+  render_number++;
   // 找到root
   const root = findRootFiber(fiber);
 
   if (root) {
-    let wipRoot: Fiber = { ...root };
+    let wipRoot: Fiber = {
+      ...root,
+      alternate: root,
+      debug: { _render_number_: render_number },
+    };
     let wipFiber: Fiber | null = wipRoot;
     // 开始深度优先遍历
     while (wipFiber) {
@@ -62,10 +74,7 @@ function updateOnFiber(fiber: Fiber) {
     // commitWork
     console.log(wipRoot);
 
-    (wipRoot.stateNode as FiberRoot).container.appendChild(
-      wipRoot.child?.child?.stateNode as HTMLElement
-    );
-    (wipRoot.stateNode as FiberRoot).current = wipRoot;
+    commitWorkOnRoot(wipRoot);
   }
 }
 
@@ -73,19 +82,35 @@ function beginWorkOnFiber(wipFiber: Fiber): Fiber | null {
   if (wipFiber.tags === "HostRoot" && wipFiber.pendingProps) {
     const childFiber = createFiber(wipFiber.pendingProps);
     childFiber.return = wipFiber;
+
+    childFiber.alternate = wipFiber.alternate?.child || null;
+    // 第一次渲染时， 打上 Placement 标记
+    // if (!wipFiber.alternate?.child) {
+    //   console.log("第一次渲染， 打上标记");
+    //   childFiber.flags = Placement;
+    // }
+
+    // 我的diff没有写好， 这里暂时粗暴的每次都全量更新
+
+    childFiber.flags = Placement;
+
     wipFiber.child = childFiber;
     return childFiber;
   }
 
   if (wipFiber.tags === "FunctionComponent") {
-    const element = (wipFiber.type as Function)(wipFiber.pendingProps);
-    const child = diffChildren(element, wipFiber);
+    const element = (wipFiber.type as Function)(
+      wipFiber.pendingProps,
+      wipFiber
+    );
+    const child = diffChildren(element, wipFiber) || null;
     wipFiber.child = child;
     return child;
   }
 
   if (wipFiber.tags === "HostComponent" && wipFiber.pendingProps) {
-    const child = diffChildren(wipFiber.pendingProps.children, wipFiber);
+    const child =
+      diffChildren(wipFiber.pendingProps.children, wipFiber) || null;
     wipFiber.child = child;
     return child;
   }
@@ -97,9 +122,17 @@ function completeWorkOnFiber(wipFiber: Fiber) {
   let currentFiber: Fiber | null = wipFiber;
   while (currentFiber) {
     if (currentFiber.tags === "HostTextNode") {
+      // if (currentFiber.alternate) {
+      //   if (currentFiber.alternate.pendingProps !== currentFiber.pendingProps) {
+      //     currentFiber.flags |= Update;
+      //   }
+      // } else {
+      //   currentFiber.stateNode = document.createTextNode(wipFiber.pendingProps);
+      // }
       currentFiber.stateNode = document.createTextNode(wipFiber.pendingProps);
     }
 
+    // 粗暴的方案就是没有update， 只有placement
     if (currentFiber.tags === "HostComponent") {
       currentFiber.stateNode = document.createElement(
         currentFiber.type as string
@@ -107,6 +140,40 @@ function completeWorkOnFiber(wipFiber: Fiber) {
 
       // 把他子级的dom全部都append进来
       appendAllChildren(currentFiber);
+    }
+
+    const parent = currentFiber.return;
+
+    // 处理Effect List
+    if (parent && currentFiber.firstEffect && currentFiber.lastEffect) {
+      // 双指针一定同时存在， 因此有firstEffect就代表父级已经存在副作用链了
+      if (parent.firstEffect && parent.lastEffect) {
+        parent.lastEffect.nextEffect = currentFiber.firstEffect;
+        parent.lastEffect = currentFiber.lastEffect;
+      } else {
+        // 父级没有副作用链
+        console.log(currentFiber.tags, parent.tags, "应该设置了吧");
+
+        parent.firstEffect = currentFiber.firstEffect;
+        parent.lastEffect = currentFiber.lastEffect;
+
+        console.log(parent, currentFiber);
+      }
+    }
+
+    // 处理自身
+    if (currentFiber.flags > NoFlags) {
+      console.log("自身有副作用");
+      // 自身存在副作用
+      if (parent) {
+        if (parent.firstEffect && parent.lastEffect) {
+          parent.lastEffect.nextEffect = currentFiber;
+          parent.lastEffect = currentFiber;
+        } else {
+          parent.firstEffect = currentFiber;
+          parent.lastEffect = currentFiber;
+        }
+      }
     }
 
     if (currentFiber.slibing) {
@@ -117,6 +184,68 @@ function completeWorkOnFiber(wipFiber: Fiber) {
   }
 
   return null;
+}
+
+function commitWorkOnRoot(wipRoot: Fiber) {
+  const firstEffect = wipRoot.firstEffect;
+
+  if (firstEffect) {
+    let effect: Fiber | null = firstEffect;
+    // 直接mutation
+    while (effect) {
+      switch (effect.flags) {
+        case Placement:
+          const hostParent = getHostParent(effect);
+          if (hostParent) {
+            const container =
+              (hostParent?.tags === "HostComponent" &&
+                (hostParent.stateNode as HTMLElement)) ||
+              (hostParent.stateNode as FiberRoot).container;
+
+            insertNode(container, effect);
+          }
+
+          break;
+        case Update:
+          break;
+      }
+      effect = effect.nextEffect;
+    }
+  }
+
+  wipRoot.firstEffect = null;
+  wipRoot.lastEffect = null;
+  (wipRoot.stateNode as FiberRoot).current = wipRoot;
+}
+
+function getHostParent(fiber: Fiber) {
+  let parent = fiber.return;
+  while (parent) {
+    if (parent.tags === "HostComponent" || parent.tags === "HostRoot") {
+      return parent;
+    }
+    parent = fiber.return;
+  }
+
+  return parent;
+}
+
+function insertNode(container: HTMLElement, node: Fiber) {
+  if (node.tags === "HostComponent" || node.tags === "HostTextNode") {
+    container.appendChild(node.stateNode as HTMLElement);
+  }
+
+  if (node.tags === "FunctionComponent") {
+    if (node.child) {
+      insertNode(container, node.child);
+      let slibing = node.child.slibing;
+
+      while (slibing) {
+        insertNode(container, slibing);
+        slibing = slibing.slibing;
+      }
+    }
+  }
 }
 
 function appendAllChildren(fiber: Fiber) {
@@ -141,7 +270,7 @@ function appendAllChildren(fiber: Fiber) {
  * 目前其实没有任何diff算法，
  * 只是在创建某一层的fiber链表结构
  */
-function diffChildren(element: JSX, returnFiber: Fiber): Fiber {
+function diffChildren(element: JSX, returnFiber: Fiber): Fiber | undefined {
   if (element) {
     if (Array.isArray(element)) {
       let prevChild: Fiber | null = null;
@@ -149,10 +278,14 @@ function diffChildren(element: JSX, returnFiber: Fiber): Fiber {
       for (let i = 0, l = element.length; i < l; i += 1) {
         const child = createFiber(element[i]);
         child.return = returnFiber;
+
         if (prevChild) {
           (prevChild as Fiber).slibing = child;
         }
         if (!firstChild) {
+          child.alternate = returnFiber.alternate?.child || null;
+          console.log(">>>");
+          console.log(child);
           firstChild = child;
         }
 
@@ -164,6 +297,7 @@ function diffChildren(element: JSX, returnFiber: Fiber): Fiber {
 
     const child = createFiber(element);
     child.return = returnFiber;
+    child.alternate = returnFiber.alternate?.child || null;
     return child;
   }
 }

@@ -15,9 +15,20 @@ const baseFiber = {
 
   stateNode: null,
 
-  current: null,
   alternate: null,
+
+  firstEffect: null,
+  lastEffect: null,
+  nextEffect: null,
 };
+// You can change the rest (and add more).
+export const NoFlags = /*                      */ 0b000000000000000000;
+export const Placement = /*                    */ 0b000000000000000010;
+export const Update = /*                       */ 0b000000000000000100;
+export const PlacementAndUpdate = /*           */ 0b000000000000000110;
+export const Deletion = /*                     */ 0b000000000000001000;
+export const Snapshot = /*                     */ 0b000000000100000000;
+export const Passive = /*                      */ 0b000000001000000000;
 function createRootFiber(element: JSX): Fiber {
   return {
     ...baseFiber,

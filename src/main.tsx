@@ -9,8 +9,8 @@ import "./index.css";
 import App, { App2 } from "./App";
 
 // render(createElement(App, null, null), document.getElementById("root")!);
-render(
-  createElement("div", null, createElement(App, null, null)),
-  document.getElementById("root")!
-);
-// render_new(createElement_new(App2), document.getElementById("root")!);
+// render(
+//   createElement("div", null, createElement(App, null, null)),
+//   document.getElementById("root")!
+// );
+render_new(createElement_new(App2), document.getElementById("root")!);

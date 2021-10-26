@@ -30,6 +30,13 @@ type Fiber = {
 
   stateNode: FiberRoot | HTMLElement | Text | null;
 
-  current: Fiber | null;
   alternate: Fiber | null;
+
+  firstEffect: Fiber | null;
+  lastEffect: Fiber | null;
+  nextEffect: Fiber | null;
+
+  debug?: {
+    _render_number_: number;
+  };
 };
