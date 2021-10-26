@@ -169,9 +169,12 @@ function completeUnitOfWork(unitOfWork: any) {
         // side-effect order.
         // 在父级上append当前节点的副作用
         // 这是一个链表
+
+        // 若父级还没有effect链表， 直接把子级的链表给父级
         if (returnFiber.firstEffect === null) {
           returnFiber.firstEffect = completedWork.firstEffect;
         }
+
         if (completedWork.lastEffect !== null) {
           if (returnFiber.lastEffect !== null) {
             returnFiber.lastEffect.nextEffect = completedWork.firstEffect;
