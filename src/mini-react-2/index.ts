@@ -1,6 +1,7 @@
 import {
   createFiber,
   createRootFiber,
+  Deletion,
   NoFlags,
   Placement,
   Update,
@@ -55,6 +56,8 @@ export function updateOnFiber(fiber: Fiber) {
   if (root) {
     let wipRoot: Fiber = {
       ...root,
+
+      firstEffect: null,
       alternate: root,
       debug: { _render_number_: render_number },
     };
@@ -85,14 +88,14 @@ function beginWorkOnFiber(wipFiber: Fiber): Fiber | null {
 
     childFiber.alternate = wipFiber.alternate?.child || null;
     // 第一次渲染时， 打上 Placement 标记
-    // if (!wipFiber.alternate?.child) {
-    //   console.log("第一次渲染， 打上标记");
-    //   childFiber.flags = Placement;
-    // }
+    if (!wipFiber.alternate?.child) {
+      console.log("第一次渲染， 打上标记");
+      childFiber.flags = Placement;
+    }
 
     // 我的diff没有写好， 这里暂时粗暴的每次都全量更新
 
-    childFiber.flags = Placement;
+    // childFiber.flags = Placement;
 
     wipFiber.child = childFiber;
     return childFiber;
@@ -152,18 +155,13 @@ function completeWorkOnFiber(wipFiber: Fiber) {
         parent.lastEffect = currentFiber.lastEffect;
       } else {
         // 父级没有副作用链
-        console.log(currentFiber.tags, parent.tags, "应该设置了吧");
-
         parent.firstEffect = currentFiber.firstEffect;
         parent.lastEffect = currentFiber.lastEffect;
-
-        console.log(parent, currentFiber);
       }
     }
 
     // 处理自身
     if (currentFiber.flags > NoFlags) {
-      console.log("自身有副作用");
       // 自身存在副作用
       if (parent) {
         if (parent.firstEffect && parent.lastEffect) {
@@ -192,10 +190,13 @@ function commitWorkOnRoot(wipRoot: Fiber) {
   if (firstEffect) {
     let effect: Fiber | null = firstEffect;
     // 直接mutation
+    console.log("直接mutation");
     while (effect) {
+      console.log(effect.flags);
       switch (effect.flags) {
         case Placement:
           const hostParent = getHostParent(effect);
+
           if (hostParent) {
             const container =
               (hostParent?.tags === "HostComponent" &&
@@ -207,6 +208,20 @@ function commitWorkOnRoot(wipRoot: Fiber) {
 
           break;
         case Update:
+          break;
+        case Deletion:
+          console.log("delete");
+          if (
+            effect.stateNode &&
+            (effect.stateNode as HTMLElement).parentNode
+          ) {
+            (effect.stateNode as HTMLElement).parentNode?.removeChild(
+              effect.stateNode as HTMLElement
+            );
+          }
+          break;
+        default:
+          console.log("not support this flags");
           break;
       }
       effect = effect.nextEffect;
@@ -224,7 +239,7 @@ function getHostParent(fiber: Fiber) {
     if (parent.tags === "HostComponent" || parent.tags === "HostRoot") {
       return parent;
     }
-    parent = fiber.return;
+    parent = parent.return;
   }
 
   return parent;
@@ -278,18 +293,28 @@ function diffChildren(element: JSX, returnFiber: Fiber): Fiber | undefined {
       for (let i = 0, l = element.length; i < l; i += 1) {
         const child = createFiber(element[i]);
         child.return = returnFiber;
-
+        // child.flags = Placement;
         if (prevChild) {
           (prevChild as Fiber).slibing = child;
         }
         if (!firstChild) {
           child.alternate = returnFiber.alternate?.child || null;
-          console.log(">>>");
-          console.log(child);
           firstChild = child;
         }
 
         prevChild = child;
+      }
+
+      if (returnFiber.alternate?.child) {
+        firstChild!.flags = Placement;
+        returnFiber.alternate.child.flags = Deletion;
+
+        let sibling = returnFiber.alternate.child.slibing;
+
+        while (sibling) {
+          sibling.flags = Deletion;
+          sibling = sibling.slibing;
+        }
       }
 
       return firstChild!;
@@ -297,7 +322,21 @@ function diffChildren(element: JSX, returnFiber: Fiber): Fiber | undefined {
 
     const child = createFiber(element);
     child.return = returnFiber;
-    child.alternate = returnFiber.alternate?.child || null;
+
+    if (returnFiber.alternate?.child) {
+      child.flags = Placement;
+      child.alternate = returnFiber.alternate.child;
+      returnFiber.alternate.child.flags = Deletion;
+
+      let sibling = returnFiber.alternate.child.slibing;
+
+      while (sibling) {
+        sibling.flags = Deletion;
+        sibling = sibling.slibing;
+      }
+    } else {
+      child.alternate = null;
+    }
     return child;
   }
 }

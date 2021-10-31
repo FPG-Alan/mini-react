@@ -6,9 +6,9 @@ import { updateOnFiber } from "./mini-react-2";
 function App() {
   const [state, dispatch] = useState(0);
 
-  // useEffect(() => {
-  //   // console.log(state);
-  // }, [state]);
+  useEffect(() => {
+    // console.log(state);
+  }, [state]);
 
   return createElement(
     "div",
