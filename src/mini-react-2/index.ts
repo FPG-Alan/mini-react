@@ -20,6 +20,7 @@ export function createElement(
 }
 
 const FIBER_ROOT_BINDER = "mini_react_fiber_root";
+const DeltionEffects: Fiber[] = [];
 export function render(
   jsxObj: JSX,
   container: HTMLElement & { [FIBER_ROOT_BINDER]?: FiberRoot }
@@ -49,6 +50,7 @@ export function render(
 let render_number = 0;
 export function updateOnFiber(fiber: Fiber) {
   console.log("update on fiber");
+
   render_number++;
   // 找到root
   const root = findRootFiber(fiber);
@@ -190,7 +192,6 @@ function commitWorkOnRoot(wipRoot: Fiber) {
   if (firstEffect) {
     let effect: Fiber | null = firstEffect;
     // 直接mutation
-    console.log("直接mutation");
     while (effect) {
       console.log(effect.flags);
       switch (effect.flags) {
@@ -226,6 +227,19 @@ function commitWorkOnRoot(wipRoot: Fiber) {
       }
       effect = effect.nextEffect;
     }
+  }
+
+  if (DeltionEffects.length > 0) {
+    for (let i = 0, l = DeltionEffects.length; i < l; i += 1) {
+      const effect = DeltionEffects[i];
+      if (effect.stateNode && (effect.stateNode as HTMLElement).parentNode) {
+        (effect.stateNode as HTMLElement).parentNode?.removeChild(
+          effect.stateNode as HTMLElement
+        );
+      }
+    }
+
+    DeltionEffects.splice(0, DeltionEffects.length);
   }
 
   wipRoot.firstEffect = null;
@@ -309,10 +323,15 @@ function diffChildren(element: JSX, returnFiber: Fiber): Fiber | undefined {
         firstChild!.flags = Placement;
         returnFiber.alternate.child.flags = Deletion;
 
+        DeltionEffects.push(returnFiber.alternate.child);
+
         let sibling = returnFiber.alternate.child.slibing;
+        // firstChild!.firstEffect = returnFiber.alternate.child;
 
         while (sibling) {
           sibling.flags = Deletion;
+          DeltionEffects.push(sibling);
+          // firstChild!.firstEffect!.nextEffect = sibling;
           sibling = sibling.slibing;
         }
       }
